@@ -7,7 +7,7 @@ Headline Guessr runs as a single Docker container. Next.js and the database live
 - The database is a SQLite file at `/data/headline.sqlite` on the `headline-data` volume.
 - SQLite is in WAL mode, with a 5 second busy timeout and a large page cache, so readers do not block each other and a score write is one small row.
 - There is no database username or password, and no environment variable for database credentials.
-- The xAI key and the admin password hash come from the `.env` file next to `docker-compose.yml`. Compose passes that file into the container. The database directory is `./data`, or `HG_DATA` if that is set.
+- The xAI key and the admin password hash are sealed in `.env.enc`. Startup unlocks them with `ENV_PASS`. The database directory is `./data`, or `HG_DATA` if that is set.
 - One process is enough for the first host. Page reads are short, the daily round is cached in the database, and score inserts stay on one writer. That is the shape that holds thousands of people playing at once on this box.
 - The app is not stateless yet. The database file, the play sessions, and the daily scheduler all belong to this one container. Leave it that way until the move below.
 

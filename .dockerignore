@@ -2,6 +2,7 @@ node_modules
 .next
 data
 .env
+.deploy-pass
 app.py
 templates
 static

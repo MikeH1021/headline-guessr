@@ -32,7 +32,10 @@ COPY --from=build --chown=node:node /app/node_modules/better-sqlite3 ./node_modu
 COPY --from=build --chown=node:node /app/node_modules/bindings ./node_modules/bindings
 COPY --from=build --chown=node:node /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
+COPY scripts/unseal-env.mjs /app/unseal-env.mjs
+COPY .env.enc /app/.env.enc
+RUN chmod 755 /usr/local/bin/docker-entrypoint.sh \
+  && chmod 644 /app/unseal-env.mjs /app/.env.enc
 USER root
 EXPOSE 3000
 VOLUME ["/data"]

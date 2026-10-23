@@ -1,4 +1,5 @@
 .env
+.deploy-pass
 settings.json
 round.json
 refresh_status.json
