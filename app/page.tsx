@@ -30,6 +30,7 @@ export default async function HomePage() {
               ))}
             </div>
           )}
+          <div className="bug" aria-hidden="true"><span /><span /><span /><span /></div>
           <p className="kicker">{played ? 'Today' : 'A daily round'}</p>
           <h1 className="logo">Headline<br /><em>Guessr</em></h1>
           {played ? (

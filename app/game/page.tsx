@@ -61,7 +61,10 @@ export default async function GamePage({ searchParams }: { searchParams: Promise
                       data-answer={card.answer}
                     >
                       <div className="story">
-                        <p className="source">{card.source}</p>
+                        <div className="story-mast">
+                          <p className="source">{card.source}</p>
+                          <p className="folio" aria-hidden="true">{String(index + 1).padStart(2, '0')}</p>
+                        </div>
                         <h2 className={`headline${isBanner(card.headline) ? ' is-banner' : ''}`} tabIndex={-1}>{card.headline}</h2>
                       </div>
                       <div className="choices" role="group" aria-label="Ethnicity">

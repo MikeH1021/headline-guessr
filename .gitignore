@@ -9,6 +9,7 @@ queue.json
 data.json
 node_modules
 .next
+.next-preview
 data
 *.sqlite
 *.sqlite-shm

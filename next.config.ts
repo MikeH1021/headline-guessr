@@ -2,6 +2,7 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  distDir: process.env.HG_DIST || '.next',
   poweredByHeader: false,
   serverExternalPackages: ['better-sqlite3'],
   async headers() {

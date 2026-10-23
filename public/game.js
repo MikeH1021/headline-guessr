@@ -262,8 +262,17 @@
 
     function showStamp(title, line, tier) {
         var stamp = document.createElement('div');
-        stamp.className = 'stamp';
+        stamp.className = 'stamp' + (tier ? ' is-' + tier : '');
         stamp.setAttribute('role', 'status');
+        var row = document.querySelector('.pips');
+        if (row) {
+            var clone = row.cloneNode(true);
+            clone.className = 'pips stamp-pips';
+            stamp.appendChild(clone);
+        }
+        var score = document.createElement('p');
+        score.className = 'stamp-score';
+        score.textContent = correctCount + ' / ' + total;
         var kicker = document.createElement('p');
         kicker.className = 'kicker';
         kicker.textContent = 'You are';
@@ -273,6 +282,7 @@
         var note = document.createElement('p');
         note.className = 'stamp-line';
         note.textContent = line || '';
+        stamp.appendChild(score);
         stamp.appendChild(kicker);
         stamp.appendChild(heading);
         stamp.appendChild(note);
@@ -341,7 +351,10 @@
             }
             var tier = titleNode.getAttribute('data-tier');
             var lineNode = doc.querySelector('.rank-line');
-            var wait = window.HGSound ? HGSound.finish(tier) : 700;
+            var wait = 700;
+            try {
+                if (window.HGSound) wait = HGSound.finish(tier) || wait;
+            } catch (err) {}
             var stamp = showStamp(titleNode.textContent, lineNode ? lineNode.textContent : '', tier);
             if (doc.querySelector('.perfect') && stamp) {
                 var sweep = document.createElement('p');
