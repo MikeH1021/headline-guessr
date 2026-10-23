@@ -14,16 +14,29 @@ const serif = Newsreader({
 })
 
 export async function generateMetadata(): Promise<Metadata> {
-  const configured = (process.env.PUBLIC_ORIGIN || '').trim()
-  let metadataBase: URL | undefined
-  if (configured) {
-    try { metadataBase = new URL(configured) } catch { metadataBase = undefined }
-  }
+  const configured = (process.env.PUBLIC_ORIGIN || 'https://headlineguessr.com').trim()
+  let metadataBase = new URL('https://headlineguessr.com')
+  try { metadataBase = new URL(configured) } catch { metadataBase = new URL('https://headlineguessr.com') }
+  const description = 'A daily round of crime headlines. Guess the perpetrator’s ethnicity, one card at a time.'
   return {
     title: 'Headline Guessr',
-    description: 'A daily round of crime headlines. Guess the perpetrator’s ethnicity, one card at a time.',
+    description,
     icons: { icon: '/favicon.svg' },
     metadataBase,
+    openGraph: {
+      title: 'Headline Guessr',
+      description,
+      url: metadataBase.origin,
+      siteName: 'Headline Guessr',
+      type: 'website',
+      images: [{ url: '/og.png', width: 2400, height: 1260, alt: 'Headline Guessr' }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'Headline Guessr',
+      description,
+      images: ['/og.png'],
+    },
   }
 }
 
