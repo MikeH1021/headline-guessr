@@ -7,6 +7,7 @@ import { jobSnapshot } from '@/lib/job'
 import { clearRum } from '@/lib/rum'
 import { addFeed, dropQueued, removeFeed, saveSettings } from '@/lib/store'
 import { startRefresh } from '@/lib/classify'
+import { publicUrl } from '@/lib/public-url'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: Request) {
   const jar = await cookies()
   if (!sameOrigin(request) || !adminSessionValid(jar.get(ADMIN_COOKIE)?.value || '')) {
-    return NextResponse.redirect(new URL('/admin/login', request.url), 303)
+    return NextResponse.redirect(publicUrl(request, '/admin/login'), 303)
   }
   const form = await request.formData()
   const action = String(form.get('action') || '')
@@ -44,5 +45,5 @@ export async function POST(request: Request) {
       message = `Saved. The daily refresh runs at ${refreshTime}. The model is ${chosen}.`
     }
   }
-  return NextResponse.redirect(new URL(`/admin?notice=${encodeURIComponent(message)}`, request.url), 303)
+  return NextResponse.redirect(publicUrl(request, `/admin?notice=${encodeURIComponent(message)}`), 303)
 }

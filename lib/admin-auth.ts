@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { db } from './db'
 import { loadEnv } from './env'
 import { passwordMatches } from './password'
+import { publicOrigin } from './public-url'
 
 export const ADMIN_COOKIE = 'hg_admin'
 const MAX_AGE_SEC = 60 * 60 * 12
@@ -95,5 +96,5 @@ export function sameOrigin(request: Request) {
 }
 
 export function requestIsSecure(request: Request) {
-  return new URL(request.url).protocol === 'https:'
+  return publicOrigin(request).startsWith('https:')
 }

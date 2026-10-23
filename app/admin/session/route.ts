@@ -12,12 +12,13 @@ import {
   sameOrigin,
 } from '@/lib/admin-auth'
 import { clientKey } from '@/lib/limit'
+import { publicUrl } from '@/lib/public-url'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 function loginRedirect(request: Request, notice: string) {
-  const url = new URL('/admin/login', request.url)
+  const url = publicUrl(request, '/admin/login')
   url.searchParams.set('notice', notice)
   return NextResponse.redirect(url, 303)
 }
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
     return loginRedirect(request, 'That password is wrong.')
   }
   clearLoginFailures(ip)
-  const response = NextResponse.redirect(new URL('/admin', request.url), 303)
+  const response = NextResponse.redirect(publicUrl(request, '/admin'), 303)
   response.cookies.set(ADMIN_COOKIE, createAdminSession(), adminCookie(requestIsSecure(request)))
   return response
 }

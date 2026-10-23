@@ -4,6 +4,7 @@ import { ETHNICITIES } from '@/lib/constants'
 import { clientKey, tooMany } from '@/lib/limit'
 import { ordinal } from '@/lib/scoring'
 import { loadSession, recordPercentile, saveSession } from '@/lib/store'
+import { publicUrl } from '@/lib/public-url'
 import { SESSION_COOKIE } from '@/lib/session'
 
 export const runtime = 'nodejs'
@@ -18,10 +19,10 @@ export async function POST(request: Request) {
   const allowed = new Set<string>(ETHNICITIES)
   const correct = session?.correctAnswers || []
   if (!session || !id || !correct.length || answers.length !== correct.length || answers.some((guess) => !allowed.has(guess))) {
-    return NextResponse.redirect(new URL('/game', request.url), 303)
+    return NextResponse.redirect(publicUrl(request, '/game'), 303)
   }
   if (tooMany(`play:${id}`, 8, 10 * 60 * 1000) || tooMany(`play:${clientKey(request)}`, 300, 10 * 60 * 1000)) {
-    return NextResponse.redirect(new URL('/game', request.url), 303)
+    return NextResponse.redirect(publicUrl(request, '/game'), 303)
   }
   const score = answers.reduce((sum, guess, index) => sum + (guess === correct[index] ? 1 : 0), 0)
   const recorded = recordPercentile(score, correct.length, id)
@@ -35,5 +36,5 @@ export async function POST(request: Request) {
     roundKey: recorded.roundKey,
   }
   saveSession(id, session)
-  return NextResponse.redirect(new URL('/results', request.url), 303)
+  return NextResponse.redirect(publicUrl(request, '/results'), 303)
 }

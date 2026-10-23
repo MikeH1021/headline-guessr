@@ -6,6 +6,7 @@ import { randomBytes, scryptSync } from 'crypto'
 import { dealQueue, interleave, sameEvent } from '../lib/deal'
 import { feedName, feedUrl, publicFeedUrl } from '../lib/feeds'
 import { passwordMatches } from '../lib/password'
+import { publicOrigin } from '../lib/public-url'
 import { accuracyPercentile, median, ordinal, paceLabel, percentileRank, pythonRound, rankTier } from '../lib/scoring'
 import { storiesFromRss } from '../lib/rss'
 
@@ -71,6 +72,22 @@ const stored = `scrypt:16384:8:1:${salt.toString('base64url')}:${sample.toString
 assert.equal(passwordMatches('sample-pass', stored), true)
 assert.equal(passwordMatches('wrong-pass', stored), false)
 assert.equal(passwordMatches('sample-pass', 'scrypt$1$1$1$aa$bb'), false)
+
+const dockerRequest = new Request('https://0.0.0.0:3000/admin/session', {
+  headers: {
+    host: 'helios:8110',
+    origin: 'http://helios:8110',
+    'x-forwarded-proto': 'https',
+  },
+})
+assert.equal(publicOrigin(dockerRequest), 'http://helios:8110')
+const httpsRequest = new Request('http://0.0.0.0:3000/admin/session', {
+  headers: {
+    host: 'helios.example:8110',
+    origin: 'https://helios.example:8110',
+  },
+})
+assert.equal(publicOrigin(httpsRequest), 'https://helios.example:8110')
 assert.equal(feedName(''), '')
 assert.equal(feedName('Boston Herald'), 'Boston Herald')
 
