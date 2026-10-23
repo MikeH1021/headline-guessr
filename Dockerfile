@@ -19,7 +19,8 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     DATA_DIR=/data \
     HOSTNAME=0.0.0.0 \
-    PORT=3000
+    PORT=3000 \
+    PUBLIC_ORIGIN=https://headlineguessr.com
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates \
   && rm -rf /var/lib/apt/lists/* \

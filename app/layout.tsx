@@ -13,10 +13,18 @@ const serif = Newsreader({
   variable: '--font-serif',
 })
 
-export const metadata: Metadata = {
-  title: 'Headline Guessr',
-  description: 'A daily round of crime headlines. Guess the perpetrator’s ethnicity, one card at a time.',
-  icons: { icon: '/favicon.svg' },
+export async function generateMetadata(): Promise<Metadata> {
+  const configured = (process.env.PUBLIC_ORIGIN || '').trim()
+  let metadataBase: URL | undefined
+  if (configured) {
+    try { metadataBase = new URL(configured) } catch { metadataBase = undefined }
+  }
+  return {
+    title: 'Headline Guessr',
+    description: 'A daily round of crime headlines. Guess the perpetrator’s ethnicity, one card at a time.',
+    icons: { icon: '/favicon.svg' },
+    metadataBase,
+  }
 }
 
 export const viewport: Viewport = {

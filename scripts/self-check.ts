@@ -88,6 +88,13 @@ const httpsRequest = new Request('http://0.0.0.0:3000/admin/session', {
   },
 })
 assert.equal(publicOrigin(httpsRequest), 'https://helios.example:8110')
+process.env.PUBLIC_ORIGIN = 'https://headlineguessr.com'
+assert.equal(publicOrigin(dockerRequest), 'https://headlineguessr.com')
+const siteRequest = new Request('http://0.0.0.0:3000/admin/session', {
+  headers: { host: 'headlineguessr.com', origin: 'https://headlineguessr.com' },
+})
+assert.equal(publicOrigin(siteRequest), 'https://headlineguessr.com')
+delete process.env.PUBLIC_ORIGIN
 assert.equal(feedName(''), '')
 assert.equal(feedName('Boston Herald'), 'Boston Herald')
 
