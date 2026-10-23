@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Play — Headline Guessr{% endblock %}
+{% block body_class %}page-game{% endblock %}
+{% block body %}
+<div class="frame play">
+    <header class="topbar">
+        <a class="mark" href="/">Headline <em>Guessr</em></a>
+        {% if cards %}<p class="count" id="count" aria-live="polite">1 of {{ cards|length }}</p>{% endif %}
+    </header>
+    <main id="main" class="stage-wrap">
+        <div class="board">
+        {% if round_label %}<p class="dateline">{{ round_label }}</p>{% endif %}
+        {% if error %}
+        <div class="panel">
+            <p>{{ error }}</p>
+            <p><a href="/admin">Open admin</a></p>
+        </div>
+        {% elif cards %}
+        <p class="instructions">Guess the ethnicity of the perpetrator. <span class="keys">Keys 1–5, then Enter.</span></p>
+        <div class="progress">
+            <ol class="pips" aria-hidden="true">
+                {% for card in cards %}
+                <li class="pip{% if loop.first %} is-current{% endif %}"></li>
+                {% endfor %}
+            </ol>
+            <p class="pace-live" id="pace-live" hidden></p>
+            <p class="tally" id="tally" aria-live="polite"></p>
+        </div>
+        <form method="post" id="game-form" autocomplete="off" tabindex="-1">
+            <div class="stage" id="stage">
+                {% for card in cards %}
+                <section class="card{% if loop.first %} is-active{% endif %}" data-answer="{{ card.answer }}">
+                    <div class="story">
+                        <p class="source">{{ card.source }}</p>
+                        <h2 class="headline{% if card.headline == card.headline|upper %} is-banner{% endif %}" tabindex="-1">{{ card.headline }}</h2>
+                    </div>
+                    <div class="choices" role="group" aria-label="Ethnicity">
+                        {% for choice in choices %}
+                        <button type="button" class="choice" data-value="{{ choice }}" aria-pressed="false">
+                            <span>{{ choice }}</span>
+                            <kbd aria-hidden="true">{{ loop.index }}</kbd>
+                        </button>
+                        {% endfor %}
+                    </div>
+                    <p class="miss" aria-live="polite"></p>
+                    <button type="{% if loop.last %}submit{% else %}button{% endif %}" class="lock" data-label="{% if loop.last %}Finish{% else %}Lock in{% endif %}">{% if loop.last %}Finish{% else %}Lock in{% endif %}</button>
+                    <select class="fallback" name="answer" aria-label="Ethnicity">
+                        <option value="">Select ethnicity</option>
+                        {% for choice in choices %}
+                        <option value="{{ choice }}">{{ choice }}</option>
+                        {% endfor %}
+                    </select>
+                </section>
+                {% endfor %}
+            </div>
+            <button class="play-btn finish-fallback" type="submit">Finish</button>
+        </form>
+        {% endif %}
+        </div>
+    </main>
+</div>
+{% if cards %}
+<script src="{{ url_for('static', filename='sound.js') }}"></script>
+<script src="{{ url_for('static', filename='game.js') }}"></script>
+{% endif %}
+{% endblock %}

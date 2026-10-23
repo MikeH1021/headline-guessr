@@ -1,0 +1,15 @@
+node_modules
+.next
+data
+.env
+app.py
+templates
+static
+round.json
+scores.json
+settings.json
+rum.json
+queue.json
+refresh_status.json
+data.json
+*.md

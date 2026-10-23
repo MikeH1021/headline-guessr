@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Hint — Headline Guessr{% endblock %}
+{% block body_class %}page-results{% endblock %}
+{% block body %}
+<div class="frame">
+    <header class="topbar">
+        <a class="mark" href="/">Headline <em>Guessr</em></a>
+    </header>
+    <main id="main">
+        <h1 class="logo" style="font-size: clamp(2.4rem, 8vw, 3.4rem);">Hint</h1>
+        <p class="hint-text">{{ hint_text }}</p>
+        <div class="actions">
+            <a class="play-btn" href="/game">Back to the round</a>
+        </div>
+    </main>
+</div>
+{% endblock %}

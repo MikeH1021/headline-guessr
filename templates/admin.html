@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}Admin — Headline Guessr{% endblock %}
+{% block body_class %}page-admin{% endblock %}
+{% block body %}
+<div class="frame frame-wide">
+    <header class="topbar">
+        <a class="mark" href="/">Headline <em>Guessr</em></a>
+        <a class="quiet" href="/game">Play</a>
+    </header>
+    <main id="main">
+        <h1>Admin</h1>
+        <p>Choose the Grok model, and edit the prompt it uses when it reads an article and records the perpetrator’s ethnicity. The headline and the article copy are both sent. Grok can search the web when the article does not state an ethnicity. The answer is kept only when a news report states it.</p>
+        <p>The daily round is 10 headlines. Every refresh reads each feed below, 16 headlines from each one. Confirmed articles wait in the queue. The round takes one source at a time, so the same outlet does not fill the row.</p>
+        {% if message %}
+        <p class="message">{{ message }}</p>
+        {% endif %}
+        <section class="rum" id="rum" aria-labelledby="rum-title">
+            <h2 id="rum-title">Stats</h2>
+            <p>Real use of the site. Each browser reports the page it opened, whether the round was finished, and how fast the page felt. The median skips a finish longer than 15 minutes, which is a tab left open.</p>
+            <form method="post" onsubmit="return confirm('Clear all stats on this server?');">
+                <button class="btn btn-ghost" type="submit" name="action" value="clear_stats">Clear stats</button>
+            </form>
+            <p class="note" id="rum-empty">No visits yet. Open the site and the counts fill in.</p>
+            <div id="rum-body" hidden>
+                <div class="stat-row">
+                    <p><strong id="rum-views">0</strong><span>Views</span></p>
+                    <p><strong id="rum-people">0</strong><span>Visitors</span></p>
+                    <p><strong id="rum-finishes">0</strong><span>Finishes</span></p>
+                    <p><strong id="rum-time">—</strong><span>Median finish</span></p>
+                </div>
+                <p class="rum-line" id="rum-today"></p>
+                <p class="rum-line" id="rum-score"></p>
+                <p class="rum-line" id="rum-mix"></p>
+                <p class="rum-line" id="rum-vitals"></p>
+                <ol class="career-ranks" id="rum-pages"></ol>
+                <ul class="rum-log" id="rum-recent"></ul>
+                <ul class="rum-errors" id="rum-errors"></ul>
+            </div>
+        </section>
+        <h2>Feeds</h2>
+        <p>Add or remove a crime RSS feed. The next refresh reads the whole list. Grok still keeps an ethnicity only when a news report states one.</p>
+        <ul class="feed-list">
+            {% for feed in feeds %}
+            <li>
+                <form method="post">
+                    <span class="feed-name">{{ feed.name }}</span>
+                    <span class="feed-url">{{ feed.url }}</span>
+                    <input type="hidden" name="feed_url" value="{{ feed.url }}">
+                    <button class="btn btn-ghost" type="submit" name="action" value="remove_feed">Remove</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        <form class="feed-add" method="post">
+            <label>Name<input type="text" name="feed_name" maxlength="40" placeholder="Washington Post" required></label>
+            <label>RSS URL<input type="url" name="feed_url" maxlength="300" placeholder="https://example.com/crime/feed" required></label>
+            <button class="btn" type="submit" name="action" value="add_feed">Add feed</button>
+        </form>
+        <h2>Queue</h2>
+        <p>Confirmed articles waiting for a round, with the outlet they came from. Anything not dealt today stays for the next one.</p>
+        <p class="note" id="queue-empty" {% if queue %}hidden{% endif %}>The queue is empty. A refresh adds confirmed articles here, then deals the round from them.</p>
+        <ul class="queue-list" id="queue-list">
+            {% for item in queue %}
+            <li>
+                <form method="post">
+                    <span class="feed-name">{{ item.source }}</span>
+                    <span class="feed-url">{{ item.headline }} — {{ item.ethnicity }}</span>
+                    <input type="hidden" name="queue_key" value="{{ item.key }}">
+                    <button class="btn btn-ghost" type="submit" name="action" value="drop_queue">Remove</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        <form method="post">
+            <label for="model">Screening model</label>
+            <select id="model" name="model">
+                {% for model in models %}
+                <option value="{{ model.id }}" {% if model.id == current %}selected{% endif %}>{{ model.id }}</option>
+                {% endfor %}
+            </select>
+            {% for model in models %}
+            <p class="note" {% if model.id != current %}hidden{% endif %} data-note="{{ model.id }}">{{ model.note }}</p>
+            {% endfor %}
+            <label for="refresh-time">Daily refresh time</label>
+            <input id="refresh-time" type="time" name="refresh_time" value="{{ refresh_time }}" required>
+            <p class="note">Local time on this computer. After this time, the app classifies today’s round once.</p>
+            <label for="prompt">Ethnicity prompt</label>
+            <textarea id="prompt" name="prompt">{{ prompt }}</textarea>
+            <button class="btn" type="submit" name="action" value="save">Save</button>
+            <button class="btn btn-ghost" type="submit" name="action" value="reset">Restore default prompt</button>
+        </form>
+        <h2>Debug refresh</h2>
+        <p>Check the box and run a refresh now. Every feed is fetched. The log shows each feed, each candidate, and Grok’s reasoning. When it says done, the round is dealt from the queue and you can play.</p>
+        <form method="post">
+            <label class="check"><input type="checkbox" name="debug_refresh" value="1" id="debug-refresh"> Debug refresh</label>
+            <button class="btn" type="submit" name="action" value="refresh" id="refresh-btn" disabled>Run debug refresh</button>
+        </form>
+        <p id="refresh-state" class="note"></p>
+        <div id="refresh-log"></div>
+        <ul id="ready-list" class="ready-list"></ul>
+    </main>
+</div>
+<script>
+    var select = document.getElementById('model');
+    var notes = Array.prototype.slice.call(document.querySelectorAll('[data-note]'));
+    function showNote() {
+        notes.forEach(function (note) {
+            note.hidden = note.getAttribute('data-note') !== select.value;
+        });
+    }
+    select.addEventListener('change', showNote);
+    showNote();
+
+    var debugBox = document.getElementById('debug-refresh');
+    var refreshBtn = document.getElementById('refresh-btn');
+    var state = document.getElementById('refresh-state');
+    var log = document.getElementById('refresh-log');
+    var readyList = document.getElementById('ready-list');
+    debugBox.addEventListener('change', function () {
+        refreshBtn.disabled = !debugBox.checked;
+    });
+
+    var drawn = 0;
+    var drawnFirst = '';
+
+    function appendEvent(event) {
+        var item = document.createElement('p');
+        item.textContent = event.at + '  ' + event.message;
+        log.appendChild(item);
+        if (event.reasoning) {
+            var notes = document.createElement('pre');
+            notes.textContent = event.reasoning;
+            log.appendChild(notes);
+        }
+    }
+
+    function drawLog(events) {
+        events = events || [];
+        var first = events.length ? events[0].at + '\n' + events[0].message : '';
+        if (drawn && (events.length < drawn || first !== drawnFirst)) {
+            log.textContent = '';
+            drawn = 0;
+        }
+        var nearBottom = drawn === 0 || (log.scrollHeight - log.clientHeight - log.scrollTop < 80);
+        for (var index = drawn; index < events.length; index++) {
+            appendEvent(events[index]);
+        }
+        drawn = events.length;
+        drawnFirst = first;
+        if (nearBottom) log.scrollTop = log.scrollHeight;
+    }
+
+    function paintQueue(items) {
+        var list = document.getElementById('queue-list');
+        var empty = document.getElementById('queue-empty');
+        items = items || [];
+        var signature = items.map(function (item) { return item.key; }).join('|');
+        if (list.dataset.signature === signature) return;
+        list.dataset.signature = signature;
+        list.textContent = '';
+        items.forEach(function (item) {
+            var row = document.createElement('li');
+            var form = document.createElement('form');
+            form.method = 'post';
+            var name = document.createElement('span');
+            name.className = 'feed-name';
+            name.textContent = item.source;
+            var detail = document.createElement('span');
+            detail.className = 'feed-url';
+            detail.textContent = item.headline + ' — ' + item.ethnicity;
+            var key = document.createElement('input');
+            key.type = 'hidden';
+            key.name = 'queue_key';
+            key.value = item.key;
+            var button = document.createElement('button');
+            button.className = 'btn btn-ghost';
+            button.type = 'submit';
+            button.name = 'action';
+            button.value = 'drop_queue';
+            button.textContent = 'Remove';
+            form.appendChild(name);
+            form.appendChild(detail);
+            form.appendChild(key);
+            form.appendChild(button);
+            row.appendChild(form);
+            list.appendChild(row);
+        });
+        if (empty) empty.hidden = items.length > 0;
+    }
+
+    function drawStatus(data) {
+        var queued = typeof data.queued === 'number' ? data.queued : (data.queue || []).length;
+        var line = data.running
+            ? 'Classifying across the feeds. ' + queued + ' confirmed in the queue.'
+            : (data.finished_at ? 'Done at ' + data.finished_at + '. ' + data.ready + ' in the round. ' + queued + ' still in the queue.' : 'No refresh yet.');
+        if (data.error) {
+            line += ' ' + data.error;
+        }
+        if (data.refreshed_at && !data.running) {
+            line += ' Round saved ' + data.refreshed_at + '.';
+        }
+        state.textContent = line;
+        drawLog(data.events || []);
+        if (data.queue) paintQueue(data.queue);
+        readyList.textContent = '';
+        if (!data.running && data.cards && data.cards.length) {
+            data.cards.forEach(function (card) {
+                var row = document.createElement('li');
+                row.textContent = card.source + ': ' + card.headline + ' — ' + card.ethnicity;
+                readyList.appendChild(row);
+            });
+        }
+        if (data.rum) paintRum(data.rum);
+    }
+
+    function paintRum(data) {
+        var empty = document.getElementById('rum-empty');
+        var body = document.getElementById('rum-body');
+        var views = data && data.views ? data.views : 0;
+        if (empty) empty.hidden = views > 0;
+        if (body) body.hidden = !views;
+        if (!views) return;
+        document.getElementById('rum-views').textContent = String(data.views);
+        document.getElementById('rum-people').textContent = String(data.visitors);
+        document.getElementById('rum-finishes').textContent = String(data.finishes);
+        document.getElementById('rum-time').textContent = data.median_finish || '—';
+        var today = data.today_views + ' view' + (data.today_views === 1 ? '' : 's');
+        today += ' · ' + data.today_visitors + ' visitor' + (data.today_visitors === 1 ? '' : 's');
+        today += ' · ' + data.today_finishes + ' finish' + (data.today_finishes === 1 ? '' : 'es');
+        document.getElementById('rum-today').textContent = 'Today: ' + today;
+        var score = document.getElementById('rum-score');
+        score.textContent = data.asked ? (data.right + ' of ' + data.asked + ' headlines right on finished rounds.') : '';
+        document.getElementById('rum-mix').textContent = data.mix || '';
+        document.getElementById('rum-vitals').textContent = data.vitals || '';
+        var pages = document.getElementById('rum-pages');
+        pages.textContent = '';
+        var peak = 0;
+        (data.pages || []).forEach(function (row) { peak = Math.max(peak, row.count); });
+        (data.pages || []).forEach(function (row) {
+            var item = document.createElement('li');
+            var name = document.createElement('span');
+            name.className = 'career-name';
+            name.textContent = row.label;
+            var tally = document.createElement('span');
+            tally.className = 'career-count';
+            tally.textContent = String(row.count);
+            var track = document.createElement('span');
+            track.className = 'career-track';
+            var bar = document.createElement('span');
+            bar.style.width = (peak ? Math.round(100 * row.count / peak) : 0) + '%';
+            track.appendChild(bar);
+            item.appendChild(name);
+            item.appendChild(tally);
+            item.appendChild(track);
+            pages.appendChild(item);
+        });
+        var recent = document.getElementById('rum-recent');
+        recent.textContent = '';
+        (data.recent || []).forEach(function (row) {
+            var item = document.createElement('li');
+            var time = document.createElement('time');
+            time.textContent = row.time;
+            var kind = document.createElement('span');
+            kind.className = 'rum-kind';
+            kind.textContent = row.kind;
+            var detail = document.createElement('span');
+            detail.textContent = row.detail;
+            item.appendChild(time);
+            item.appendChild(kind);
+            item.appendChild(detail);
+            recent.appendChild(item);
+        });
+        var errors = document.getElementById('rum-errors');
+        errors.textContent = '';
+        (data.errors || []).forEach(function (message) {
+            var item = document.createElement('li');
+            item.textContent = message;
+            errors.appendChild(item);
+        });
+    }
+
+    function pollStatus() {
+        fetch('/admin/status').then(function (response) {
+            return response.json();
+        }).then(drawStatus).catch(function () {
+            state.textContent = 'The progress log could not be loaded.';
+        });
+    }
+    pollStatus();
+    setInterval(pollStatus, 1000);
+    paintRum({{ rum|tojson }});
+</script>
+{% endblock %}

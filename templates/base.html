@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f4efe6" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#141311" media="(prefers-color-scheme: dark)">
+    <title>{% block title %}Headline Guessr{% endblock %}</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <script>document.documentElement.classList.add('js');</script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body class="{% block body_class %}{% endblock %}" data-round-day="{{ round_day|default('') }}">
+    <a class="skip" href="#main">Skip to content</a>
+    {% block body %}{% endblock %}
+    <div class="sheet" id="stats-sheet" hidden>
+        <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="stats-title">
+            <div class="sheet-head">
+                <h2 id="stats-title">Your desk</h2>
+                <button type="button" class="quiet" id="stats-close">Close</button>
+            </div>
+            <p class="sheet-empty" id="stats-empty" hidden>Finish a round and this desk fills in.</p>
+            <div id="stats-body" hidden>
+                <div class="stat-row">
+                    <p><strong id="stat-played">0</strong><span>Played</span></p>
+                    <p><strong id="stat-streak">0</strong><span>Streak</span></p>
+                    <p><strong id="stat-best">0</strong><span>Best</span></p>
+                    <p><strong id="stat-sweeps">0</strong><span>Sweeps</span></p>
+                </div>
+                <p class="most" id="stats-most"></p>
+                <ol class="career-ranks" id="career-ranks"></ol>
+                <div class="editions" id="editions"></div>
+                <p class="colophon">Kept on this browser.</p>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='rum.js') }}"></script>
+    <script src="{{ url_for('static', filename='desk.js') }}"></script>
+</body>
+</html>

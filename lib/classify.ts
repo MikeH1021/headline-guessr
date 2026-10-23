@@ -1,0 +1,242 @@
+import {
+  CANDIDATE_SIZE,
+  ETHNICITIES,
+  ETHNICITY_SCHEMA,
+  PER_FEED,
+  PICK_SCHEMA,
+  ROUND_SIZE,
+  SCREEN_BATCH,
+} from './constants'
+import { interleave, sameEvent } from './deal'
+import { HeadlineError } from './errors'
+import { canonicalEthnicity } from './ethnicity'
+import { grok } from './grok'
+import { jobLog, jobSet, jobSnapshot, markRefreshFinished, markRefreshStarted } from './job'
+import { storiesFrom, storyCopy, type GatheredStory } from './rss'
+import { appendQueue, currentFeeds, currentPrompt, currentRefreshTime, readQueue, readRound, saveRound, takeRound } from './store'
+import { localISO } from './time'
+
+type PickedStory = GatheredStory & { event: string }
+
+function applyPicks(stories: GatheredStory[], picks: unknown, priorEvents: string[] = [], limit?: number) {
+  const chosen: PickedStory[] = []
+  const usedIds = new Set<number>()
+  const usedEvents = [...priorEvents]
+  const cap = limit === undefined ? CANDIDATE_SIZE : limit
+  if (!Array.isArray(picks)) return chosen
+  for (const pick of picks) {
+    if (!pick || typeof pick !== 'object') continue
+    const record = pick as Record<string, unknown>
+    const index = Number(record.id)
+    const event = String(record.event || '').trim()
+    if (!Number.isInteger(index) || usedIds.has(index) || index < 0 || index >= stories.length || !event) continue
+    const folded = event.toLowerCase()
+    if (usedEvents.some((prior) => sameEvent(folded, prior))) continue
+    usedIds.add(index)
+    usedEvents.push(folded)
+    chosen.push({
+      source: stories[index].source,
+      headline: stories[index].headline,
+      url: stories[index].url,
+      rssCopy: stories[index].rssCopy || '',
+      event,
+    })
+    if (chosen.length >= cap) break
+  }
+  return chosen
+}
+
+async function screenStories(stories: GatheredStory[], priorEvents: string[] = [], limit?: number) {
+  const numbered = stories.map((story, index) => ({ id: index, source: story.source, headline: story.headline }))
+  const pickLimit = limit || Math.min(CANDIDATE_SIZE, stories.length)
+  const instructions = `Screen these headlines for a game. Pick at most ${pickLimit}. `
+    + 'Keep a headline only when its subject is a specific crime that has been committed: '
+    + 'someone was attacked, killed, robbed, kidnapped, sexually assaulted, or otherwise victimized. '
+    + 'Reject headlines that are mainly about a court, a judge, a trial, a retrial, a sentence, an appeal, '
+    + 'a lawsuit, or another legal procedure, even if a crime is mentioned. '
+    + 'Reject politics, policy, explainers, and follow-up roundups. '
+    + 'Each pick must be a different crime. If several headlines cover one event, such as the same school shooting, '
+    + 'keep only the single clearest report of that crime. '
+    + 'Use a mix of publications when you can. Use only the id numbers given. Do not rewrite headlines.'
+  const { parsed, reasoning } = await grok(
+    `${instructions}\n\nHeadlines:\n${JSON.stringify(numbered)}`,
+    'headline_picks',
+    PICK_SCHEMA,
+    'headline screening',
+  )
+  if (reasoning) jobLog('Screening notes.', reasoning)
+  const record = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as { picks?: unknown } : null
+  if (!record || !Array.isArray(record.picks)) {
+    throw new HeadlineError('Grok returned a screening result that could not be read.')
+  }
+  return applyPicks(stories, record.picks, priorEvents, pickLimit)
+}
+
+async function assignEthnicities(stories: { source: string; headline: string; copy: string }[]) {
+  const numbered = stories.map((story, index) => ({
+    id: index,
+    source: story.source,
+    headline: story.headline,
+    copy: story.copy,
+  }))
+  const instructions = `${currentPrompt().trim()}\n\nWeb search is available. If the article does not state the perpetrator's ethnicity, search for news reporting on the same incident or person. `
+    + `Set stated to true only when the article or a news report from that search explicitly states an ethnicity, and only when it is one of ${ETHNICITIES.join(', ')}. `
+    + 'Otherwise set stated to false and ethnicity to null. Do not infer ethnicity from a name. Do not include a person\'s name.'
+    + `\n\nArticles:\n${JSON.stringify(numbered)}`
+  const { parsed, reasoning } = await grok(
+    instructions,
+    'ethnicity_answers',
+    ETHNICITY_SCHEMA,
+    'ethnicity',
+    [{ type: 'web_search' }],
+  )
+  if (reasoning) jobLog('Ethnicity notes.', reasoning)
+  const record = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as { answers?: unknown } : null
+  if (!record || !Array.isArray(record.answers)) {
+    throw new HeadlineError('Grok returned an ethnicity result that could not be read.')
+  }
+  const byId = new Map<number, string>()
+  for (const answer of record.answers) {
+    if (!answer || typeof answer !== 'object') continue
+    const row = answer as Record<string, unknown>
+    if (!row.stated) continue
+    const index = Number(row.id)
+    const label = canonicalEthnicity(row.ethnicity)
+    if (label && Number.isInteger(index) && index >= 0 && index < stories.length) byId.set(index, label)
+  }
+  const chosen: { source: string; headline: string; ethnicity: string }[] = []
+  stories.forEach((story, index) => {
+    const label = byId.get(index)
+    if (!label) return
+    chosen.push({ source: story.source, headline: story.headline, ethnicity: label })
+  })
+  return chosen.slice(0, ROUND_SIZE)
+}
+
+async function classifyOne(story: GatheredStory) {
+  jobLog(`Article: ${story.source} — ${story.headline}`)
+  const copy = await storyCopy(story)
+  if (copy.length < 200) {
+    jobLog('Skipped. The article page did not include enough text.')
+    return 'skip'
+  }
+  const answered = await assignEthnicities([{ source: story.source, headline: story.headline, copy }])
+  if (!answered.length) {
+    jobLog('Not stated. Skipped.')
+    return 'done'
+  }
+  const card = { ...answered[0], url: story.url || '' }
+  const { length, added } = appendQueue(card)
+  jobSet({ kept: length })
+  if (added) jobLog(`Stated: ${card.ethnicity}. Queue has ${length}.`)
+  else jobLog('Already in the queue.')
+  return 'done'
+}
+
+async function classifySpread(picked: PickedStory[]) {
+  const order: string[] = []
+  const groups = new Map<string, PickedStory[]>()
+  for (const story of picked) {
+    const bucket = groups.get(story.source)
+    if (bucket) bucket.push(story)
+    else {
+      groups.set(story.source, [story])
+      order.push(story.source)
+    }
+  }
+  let pass = 0
+  while ([...groups.values()].some((group) => group.length)) {
+    pass += 1
+    jobLog(`Pass ${pass}. One article from each source that still has a candidate.`)
+    for (const source of order) {
+      const group = groups.get(source) || []
+      while (group.length) {
+        const story = group.shift()
+        if (!story) break
+        if (await classifyOne(story) !== 'skip') break
+      }
+    }
+    if (readQueue().length >= ROUND_SIZE) {
+      jobLog(`The queue can fill a round of ${ROUND_SIZE}. Later sources in this pass were included.`)
+      break
+    }
+  }
+}
+
+async function classifyDaily() {
+  if (!(process.env.XAI_API_KEY || '').trim()) {
+    throw new HeadlineError('Add your xAI API key as XAI_API_KEY in a .env file in this folder, then restart the app.')
+  }
+  const feeds = currentFeeds()
+  jobLog(`Fetching ${feeds.length} crime RSS feeds, ${PER_FEED} headlines each.`)
+  const fetched = await Promise.all(feeds.map(async (feed) => {
+    try {
+      return await storiesFrom(feed)
+    } catch {
+      return []
+    }
+  }))
+  const groups = feeds.map((feed, index) => {
+    const found = fetched[index] || []
+    jobLog(`${feed.name}: ${found.length} headlines.`)
+    return [...found]
+  })
+  const stories = interleave(groups, Math.max(1, feeds.length) * PER_FEED)
+  jobLog(`Collected ${stories.length} headlines from ${feeds.length} feeds. Screening for distinct crimes.`)
+  const picked: PickedStory[] = []
+  const prior: string[] = []
+  for (let start = 0; start < stories.length; start += SCREEN_BATCH) {
+    const batch = stories.slice(start, start + SCREEN_BATCH)
+    jobLog(`Screening headlines ${start + 1}–${start + batch.length}.`)
+    const chosen = await screenStories(batch, prior, batch.length)
+    if (!chosen.length) {
+      jobLog('No new crimes in this batch.')
+      continue
+    }
+    for (const story of chosen) {
+      prior.push(story.event.toLowerCase())
+      picked.push(story)
+      jobLog(`Candidate: ${story.source} — ${story.headline}`)
+    }
+  }
+  if (picked.length) {
+    jobLog(`Reading ${picked.length} candidates. Confirmed articles join the queue.`)
+    await classifySpread(picked)
+  } else {
+    jobLog('No new crimes to classify.')
+  }
+  const { dealt, rest } = takeRound()
+  saveRound(dealt)
+  jobSet({ kept: dealt.length })
+  if (dealt.length) jobLog(`Round: ${dealt.map((card) => card.source).join(', ')}.`)
+  jobLog(`Done. ${dealt.length} in the round. ${rest.length} left in the queue.`)
+}
+
+async function refreshWorker() {
+  let error = ''
+  try {
+    await classifyDaily()
+  } catch (err) {
+    error = err instanceof HeadlineError ? err.message : 'The refresh failed.'
+    if (error.includes('xai-')) error = 'The refresh failed.'
+    jobLog(error)
+  }
+  markRefreshFinished(error)
+}
+
+export function startRefresh() {
+  if (!markRefreshStarted()) return false
+  void refreshWorker()
+  return true
+}
+
+export async function maybeDaily() {
+  const now = new Date()
+  const [hour, minute] = currentRefreshTime().split(':').map((part) => Number(part))
+  const scheduled = new Date(now)
+  scheduled.setHours(hour, minute, 0, 0)
+  if (now < scheduled) return
+  if (readRound()?.refreshedOn === localISO(now)) return
+  if (jobSnapshot().running) return
+  startRefresh()
+}

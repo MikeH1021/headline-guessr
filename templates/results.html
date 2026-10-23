@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Results — Headline Guessr{% endblock %}
+{% block body_class %}page-results{% endblock %}
+{% block body %}
+<div class="frame">
+    <header class="topbar">
+        <a class="mark" href="/">Headline <em>Guessr</em></a>
+        <button type="button" class="quiet stats-open" aria-haspopup="dialog">Stats</button>
+        {% if round_label %}<p class="dateline">{{ round_label }}</p>{% endif %}
+    </header>
+    <main id="main">
+        <div class="score-block">
+            <p class="kicker">Today’s round</p>
+            <p class="score"><span class="score-num" data-score="{{ score }}">{{ score }}</span><span class="score-of">/{{ correct_answers|length }}</span></p>
+            <p class="pace" hidden></p>
+            {% if score == correct_answers|length and correct_answers|length %}
+            <p class="perfect">Clean sweep</p>
+            {% endif %}
+            <div class="share-bar">
+                <div class="share" aria-hidden="true">
+                    {% for guess in user_answers %}
+                    <span class="share-tile {% if correct_answers|length > loop.index0 and guess == correct_answers[loop.index0] %}is-right{% else %}is-wrong{% endif %}" style="animation-delay: {{ loop.index0 * 70 }}ms"></span>
+                    {% endfor %}
+                </div>
+                <button type="button" class="copy-result" id="copy-result">Copy result</button>
+            </div>
+            <p class="rank-kicker">You are</p>
+            <h2 class="rank-title is-{{ tier.id }}" data-tier="{{ tier.id }}">{{ tier.title }}</h2>
+            <p class="rank-line">{{ tier.line }}</p>
+            <ol class="ladder" aria-label="Ranks">
+                {% for step in ladder %}
+                <li class="{% if step.id == tier.id %}is-you{% endif %}">
+                    <span class="ladder-mark" aria-hidden="true"></span>
+                    <span>{{ step.title }}</span>
+                </li>
+                {% endfor %}
+            </ol>
+            {% if plays == 1 %}
+            <p class="rank">First play of this round.</p>
+            <p class="rank-note">The rank follows how many you got right.</p>
+            {% else %}
+            <p class="rank">{{ ordinal }} percentile</p>
+            <p class="rank-note">Out of {{ plays }} plays of this round.</p>
+            {% endif %}
+        </div>
+        {% if counts %}
+        <ol class="dist" aria-label="Score distribution">
+            {% for count in counts %}
+            {% set ratio = (count / plays * 100)|round(0, 'floor')|int %}
+            {% set bar = 0 if count == 0 else ([ratio, 12]|max) %}
+            <li class="{% if loop.index0 == score %}is-you{% endif %}">
+                <span class="dist-count">{{ count if count else '' }}</span>
+                <span class="dist-track"><span class="dist-bar" style="height: {{ bar }}%; animation-delay: {{ loop.index0 * 45 }}ms"></span></span>
+                <span class="dist-label">{{ loop.index0 }}</span>
+            </li>
+            {% endfor %}
+        </ol>
+        {% endif %}
+        <ul class="reviews">
+            {% for guess in user_answers %}
+            {% set right = correct_answers|length > loop.index0 and guess == correct_answers[loop.index0] %}
+            <li class="review {{ 'is-right' if right else 'is-wrong' }}" style="animation-delay: {{ loop.index0 * 50 }}ms">
+                {% if stories|length > loop.index0 %}
+                <p class="source">{{ stories[loop.index0].source }}</p>
+                <h2{% if stories[loop.index0].headline == stories[loop.index0].headline|upper %} class="is-banner"{% endif %}>{{ stories[loop.index0].headline }}</h2>
+                {% endif %}
+                <p class="verdict">{{ 'Right' if right else 'Wrong' }}</p>
+                {% if right %}
+                <p class="guess"><strong>{{ guess }}</strong></p>
+                {% else %}
+                <p class="guess">You said <strong>{{ guess }}</strong></p>
+                {% if correct_answers|length > loop.index0 %}
+                <p class="answer">Answer <strong>{{ correct_answers[loop.index0] }}</strong></p>
+                {% endif %}
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        <div class="actions">
+            <a class="play-btn" href="/game">Play again</a>
+            <a class="btn btn-ghost" href="/">Home</a>
+        </div>
+        <div class="daily-foot">
+            <p class="streak" hidden></p>
+            <p class="next-round" data-at="{{ next_round_iso }}">Next round <time></time></p>
+        </div>
+    </main>
+</div>
+<script src="{{ url_for('static', filename='sound.js') }}"></script>
+<script>
+    (function () {
+        if (!window.HGSound) return;
+        HGSound.mountToggle();
+        var played = false;
+        try { played = sessionStorage.getItem('hg-stung') === '1'; } catch (err) { played = false; }
+        if (played) return;
+        var title = document.querySelector('.rank-title');
+        if (!title) return;
+        var tier = title.getAttribute('data-tier');
+        function go() {
+            HGSound.resume();
+            if (HGSound.running()) HGSound.finish(tier);
+        }
+        go();
+        if (!HGSound.running()) {
+            window.addEventListener('pointerdown', function once() {
+                window.removeEventListener('pointerdown', once);
+                go();
+            });
+        }
+    })();
+</script>
+<script>
+    (function () {
+        var number = document.querySelector('.score-num');
+        var copy = document.getElementById('copy-result');
+        if (copy) {
+            copy.addEventListener('click', function () {
+                var date = document.querySelector('.dateline');
+                var of = document.querySelector('.score-of');
+                var tiles = Array.prototype.map.call(document.querySelectorAll('.score-block .share-tile'), function (tile) {
+                    return tile.classList.contains('is-right') ? '🟩' : '🟥';
+                }).join('');
+                var title = document.querySelector('.rank-title');
+                var pace = document.querySelector('.score-block .pace');
+                var streak = document.querySelector('.streak');
+                var scoreLine = (number ? (number.getAttribute('data-score') || number.textContent) : '') + (of ? of.textContent.trim() : '');
+                if (pace && !pace.hidden && pace.textContent.trim()) scoreLine += ' ' + pace.textContent.trim();
+                var text = [
+                    'Headline Guessr',
+                    date ? date.textContent.trim() : '',
+                    scoreLine,
+                    tiles,
+                    title ? title.textContent.trim() : '',
+                    streak && !streak.hidden ? streak.textContent.trim() : '',
+                ].filter(Boolean).join('\n');
+                function done() {
+                    copy.textContent = 'Copied';
+                    if (window.HGSound) HGSound.tick();
+                    window.setTimeout(function () { copy.textContent = 'Copy result'; }, 1600);
+                }
+                function fallback() {
+                    var area = document.createElement('textarea');
+                    area.value = text;
+                    document.body.appendChild(area);
+                    area.select();
+                    try { document.execCommand('copy'); } catch (err) {}
+                    area.remove();
+                    done();
+                }
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(done, fallback);
+                } else {
+                    fallback();
+                }
+            });
+        }
+        if (!number) return;
+        var target = Number(number.getAttribute('data-score'));
+        if (!target || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        var started = performance.now();
+        number.textContent = '0';
+        function frame(now) {
+            var progress = Math.min(1, (now - started) / 640);
+            var eased = 1 - Math.pow(1 - progress, 3);
+            number.textContent = String(Math.round(eased * target));
+            if (progress < 1) requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+    })();
+</script>
+{% endblock %}

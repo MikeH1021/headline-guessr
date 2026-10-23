@@ -1,0 +1,15 @@
+.env
+settings.json
+round.json
+refresh_status.json
+scores.json
+rum.json
+queue.json
+data.json
+node_modules
+.next
+data
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+tsconfig.tsbuildinfo

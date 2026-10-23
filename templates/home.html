@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Headline Guessr{% endblock %}
+{% block body_class %}page-home{% endblock %}
+{% block body %}
+<div class="frame">
+    <header class="topbar">
+        <p class="dateline">{% if round_label %}{{ round_label }}{% else %}Daily{% endif %}</p>
+        <div class="top-links">
+            <button type="button" class="quiet stats-open" aria-haspopup="dialog">Stats</button>
+            <a class="quiet" href="/admin">Admin</a>
+        </div>
+    </header>
+    <main class="home-main" id="main">
+        <div class="hero">
+            {% if not played and card_count %}
+            <div class="mark-grid" aria-hidden="true">
+                {% for _ in range(card_count) %}<span style="animation-delay: {{ loop.index0 * 45 }}ms"></span>{% endfor %}
+            </div>
+            {% endif %}
+            <p class="kicker">{% if played %}Today{% else %}A daily round{% endif %}</p>
+            <h1 class="logo">Headline<br><em>Guessr</em></h1>
+            {% if played %}
+            <div class="share played-row" aria-hidden="true">
+                {% for mark in played.marks %}
+                <span class="share-tile {{ 'is-right' if mark else 'is-wrong' }}"></span>
+                {% endfor %}
+            </div>
+            <p class="played-rank is-{{ played.tier_id }}">{{ played.title }}</p>
+            <p class="played-score">{{ played.score }}/{{ played.total }}</p>
+            <p class="pace" hidden></p>
+            <div id="today-play" hidden data-score="{{ played.score }}" data-total="{{ played.total }}" data-tier="{{ played.tier_id }}" data-title="{{ played.title }}" data-marks="{% for mark in played.marks %}{{ 'r' if mark else 'w' }}{% endfor %}"></div>
+            <div class="actions hero-actions">
+                <a class="play-btn" href="/results">See result</a>
+                <a class="btn btn-ghost" href="/game">Play again</a>
+            </div>
+            {% else %}
+            <p class="lede">Guess the perpetrator’s ethnicity from today’s crime headlines. One card at a time.</p>
+            <a class="play-btn" href="/game">Play</a>
+            <ol class="steps">
+                <li><span>1</span> Read the headline</li>
+                <li><span>2</span> Lock an answer</li>
+                <li><span>3</span> See right or wrong</li>
+            </ol>
+            {% endif %}
+        </div>
+        <div class="earlier" id="earlier" hidden></div>
+        <div class="daily-foot">
+            <p class="meta">{% if card_count %}{{ card_count }} headline{{ 's' if card_count != 1 else '' }} today{% else %}Today’s round is not ready yet{% endif %}</p>
+            <p class="streak" hidden></p>
+            <p class="next-round" data-at="{{ next_round_iso }}">Next round <time></time></p>
+        </div>
+    </main>
+</div>
+{% endblock %}

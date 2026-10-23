@@ -1,0 +1,430 @@
+(function () {
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.card'));
+    if (!cards.length) return;
+
+    var index = 0;
+    var busy = false;
+    var holding = false;
+    var scoring = false;
+    var holdTimer = null;
+    var correctCount = 0;
+    var count = document.getElementById('count');
+    var tally = document.getElementById('tally');
+    var pips = Array.prototype.slice.call(document.querySelectorAll('.pip'));
+    var form = document.getElementById('game-form');
+    var total = cards.length;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var roundDay = document.body.getAttribute('data-round-day') || '';
+    var clockTimer = null;
+    var attemptId = String(Date.now());
+    document.documentElement.style.setProperty('--hold', (reduce ? 480 : 1200) + 'ms');
+
+    function readClock() {
+        try { return JSON.parse(sessionStorage.getItem('hg-clock') || '{}'); } catch (err) { return {}; }
+    }
+
+    function writeClock(saved) {
+        try { sessionStorage.setItem('hg-clock', JSON.stringify(saved)); } catch (err) {}
+    }
+
+    function clockHere(saved) {
+        return saved.day === roundDay && saved.attempt === attemptId;
+    }
+
+    function liveMs(saved) {
+        var elapsed = saved.elapsed || 0;
+        if (!saved.runningSince) return Math.max(0, elapsed);
+        var end = saved.hiddenAt || Date.now();
+        return Math.max(0, elapsed + (end - saved.runningSince));
+    }
+
+    function freezeClock() {
+        var saved = readClock();
+        if (!saved.runningSince || !clockHere(saved)) return;
+        saved.elapsed = liveMs(saved);
+        delete saved.runningSince;
+        delete saved.hiddenAt;
+        writeClock(saved);
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        var saved = readClock();
+        if (!saved.runningSince || !clockHere(saved)) return;
+        if (document.hidden) {
+            if (!saved.hiddenAt) {
+                saved.hiddenAt = Date.now();
+                writeClock(saved);
+            }
+            return;
+        }
+        if (saved.hiddenAt) {
+            saved.runningSince += Math.max(0, Date.now() - saved.hiddenAt);
+            delete saved.hiddenAt;
+            writeClock(saved);
+            paintLive();
+        }
+    });
+
+    window.addEventListener('pagehide', freezeClock);
+
+    window.addEventListener('pageshow', function (event) {
+        if (!event.persisted) return;
+        var saved = readClock();
+        if (!clockHere(saved) || saved.runningSince) return;
+        saved.runningSince = Date.now();
+        writeClock(saved);
+        paintLive();
+    });
+
+    function paintLive() {
+        var node = document.getElementById('pace-live');
+        var saved = readClock();
+        if (!node || !saved.runningSince || !clockHere(saved)) return;
+        var seconds = Math.max(0, Math.floor(liveMs(saved) / 1000));
+        node.hidden = false;
+        node.textContent = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+    }
+
+    function startClock() {
+        var saved = readClock();
+        if (!(saved.runningSince && clockHere(saved))) {
+            writeClock({ day: roundDay, attempt: attemptId, elapsed: 0, runningSince: Date.now() });
+        }
+        paintLive();
+        if (!clockTimer) clockTimer = window.setInterval(paintLive, 250);
+    }
+
+    function storePace() {
+        var saved = readClock();
+        if (saved.day !== roundDay) return;
+        var ms = liveMs(saved);
+        if (!(ms > 0)) return;
+        try {
+            sessionStorage.setItem('hg-pace', JSON.stringify({ day: roundDay, ms: ms }));
+        } catch (err) {}
+    }
+
+    function updateProgress() {
+        if (count) count.textContent = (index + 1) + ' of ' + total;
+        pips.forEach(function (pip, pipIndex) {
+            pip.classList.toggle('is-done', pipIndex < index);
+            pip.classList.toggle('is-current', pipIndex === index);
+        });
+    }
+
+    function paintLock(card, value) {
+        var lock = card.querySelector('.lock');
+        var base = lock.getAttribute('data-label') || 'Lock in';
+        lock.textContent = value ? base + ' · ' + value : base;
+        lock.classList.toggle('is-ready', !!value);
+    }
+
+    function selectChoice(card, value) {
+        var select = card.querySelector('select');
+        select.value = value || '';
+        card.querySelectorAll('.choice').forEach(function (button) {
+            var on = button.getAttribute('data-value') === select.value;
+            button.classList.toggle('is-selected', on);
+            button.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+        card.querySelector('.miss').textContent = '';
+        card.classList.remove('is-shake');
+        paintLock(card, select.value);
+        if (value) {
+            startClock();
+            if (window.HGSound) HGSound.tick();
+        }
+    }
+
+    function showMiss(card) {
+        var miss = card.querySelector('.miss');
+        miss.textContent = '';
+        card.classList.remove('is-shake');
+        void card.offsetWidth;
+        miss.textContent = 'Pick one before you lock it in.';
+        card.classList.add('is-shake');
+        if (window.HGSound) HGSound.miss();
+    }
+
+    function focusHeadline(card) {
+        var headline = card.querySelector('.headline');
+        if (headline && headline.focus) headline.focus({ preventScroll: true });
+    }
+
+    function fitLock(card) {
+        var lock = card.querySelector('.lock');
+        if (!lock || !lock.getBoundingClientRect) return;
+        var box = lock.getBoundingClientRect();
+        if (box.bottom > window.innerHeight - 8 || box.top < 0) {
+            lock.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+        }
+    }
+
+    function holdMs() {
+        return reduce ? 480 : 1200;
+    }
+
+    function reveal(card) {
+        var answer = card.getAttribute('data-answer') || '';
+        var picked = card.querySelector('select').value;
+        var correct = !!answer && picked === answer;
+        card.classList.add('is-revealed');
+        card.querySelectorAll('.choice').forEach(function (button) {
+            button.disabled = true;
+            var value = button.getAttribute('data-value');
+            if (answer && value === answer) button.classList.add('is-right');
+            else if (value === picked) button.classList.add('is-wrong');
+        });
+        var note = card.querySelector('.miss');
+        note.classList.toggle('is-right', correct);
+        note.textContent = correct ? 'Right.' : 'Wrong. ' + answer + '.';
+        var lock = card.querySelector('.lock');
+        lock.textContent = index === total - 1 ? 'See rank' : 'Next';
+        lock.classList.toggle('is-right', correct);
+        lock.classList.toggle('is-wrong', !correct);
+        if (correct) correctCount += 1;
+        if (pips[index]) pips[index].classList.add(correct ? 'is-right' : 'is-wrong');
+        if (tally) tally.textContent = correctCount + ' right';
+        if (lock.scrollIntoView) lock.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+        if (window.HGSound) {
+            if (correct) HGSound.right();
+            else HGSound.wrong();
+        }
+    }
+
+    function armHold() {
+        holding = true;
+        var lock = cards[index].querySelector('.lock');
+        if (lock) lock.classList.add('is-holding');
+        if (holdTimer) window.clearTimeout(holdTimer);
+        holdTimer = window.setTimeout(releaseHold, holdMs());
+    }
+
+    function releaseHold() {
+        if (!holding) return;
+        holding = false;
+        var lock = cards[index].querySelector('.lock');
+        if (lock) lock.classList.remove('is-holding');
+        if (holdTimer) {
+            window.clearTimeout(holdTimer);
+            holdTimer = null;
+        }
+        if (index === total - 1) beginScore();
+        else commitNext();
+    }
+
+    function commitNext() {
+        var current = cards[index];
+        var upcoming = cards[index + 1];
+        if (!upcoming) return;
+        if (window.HGSound) HGSound.next();
+        current.classList.add('is-locked');
+        current.classList.remove('is-active');
+        current.classList.add('is-leaving');
+        index += 1;
+        upcoming.classList.add('is-active');
+        updateProgress();
+        var wrap = document.querySelector('.stage-wrap');
+        if (wrap) wrap.scrollTop = 0;
+        focusHeadline(upcoming);
+        fitLock(upcoming);
+
+        var finished = false;
+        function done() {
+            if (finished) return;
+            finished = true;
+            current.classList.remove('is-leaving');
+            current.classList.remove('is-locked');
+            busy = false;
+        }
+        current.addEventListener('animationend', done);
+        window.setTimeout(done, reduce ? 40 : 520);
+    }
+
+    function showNext() {
+        if (!cards[index + 1]) return;
+        busy = true;
+        reveal(cards[index]);
+        armHold();
+    }
+
+    cards.forEach(function (card) {
+        card.querySelectorAll('.choice').forEach(function (button) {
+            button.addEventListener('click', function () {
+                if (busy || card !== cards[index]) return;
+                selectChoice(card, button.getAttribute('data-value'));
+            });
+        });
+        card.querySelector('select').addEventListener('change', function () {
+            selectChoice(card, this.value);
+        });
+    });
+
+    function showStamp(title, line, tier) {
+        var stamp = document.createElement('div');
+        stamp.className = 'stamp';
+        stamp.setAttribute('role', 'status');
+        var kicker = document.createElement('p');
+        kicker.className = 'kicker';
+        kicker.textContent = 'You are';
+        var heading = document.createElement('p');
+        heading.className = 'stamp-title' + (tier === 'machine' ? ' is-machine' : '');
+        heading.textContent = title;
+        var note = document.createElement('p');
+        note.className = 'stamp-line';
+        note.textContent = line || '';
+        stamp.appendChild(kicker);
+        stamp.appendChild(heading);
+        stamp.appendChild(note);
+        try {
+            var pace = JSON.parse(sessionStorage.getItem('hg-pace') || '{}');
+            if (pace.day === roundDay && Number(pace.ms) > 0) {
+                var totalSeconds = Math.max(1, Math.round(Number(pace.ms) / 1000));
+                var minutes = Math.floor(totalSeconds / 60);
+                var seconds = totalSeconds % 60;
+                var paceLine = document.createElement('p');
+                paceLine.className = 'stamp-pace';
+                paceLine.textContent = minutes > 0
+                    ? 'in ' + minutes + 'm ' + String(seconds).padStart(2, '0') + 's'
+                    : 'in ' + seconds + 's';
+                stamp.appendChild(paceLine);
+            }
+        } catch (err) {}
+        document.body.appendChild(stamp);
+        return stamp;
+    }
+
+    form.addEventListener('submit', function (event) {
+        if (holding) {
+            event.preventDefault();
+            releaseHold();
+            return;
+        }
+        var select = cards[index].querySelector('select');
+        if (busy || index !== total - 1 || !select.value) {
+            event.preventDefault();
+            if (!select.value && !busy) showMiss(cards[index]);
+            return;
+        }
+        event.preventDefault();
+        busy = true;
+        reveal(cards[index]);
+        if (window.HGSound) HGSound.resume();
+        armHold();
+    });
+
+    function beginScore() {
+        if (scoring) return;
+        scoring = true;
+        var lock = cards[index].querySelector('.lock');
+        cards[index].classList.add('is-locked');
+        lock.textContent = 'Scoring';
+        storePace();
+        scoreRound();
+    }
+
+    function scoreRound() {
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            credentials: 'same-origin',
+            headers: { 'Accept': 'text/html' },
+        }).then(function (response) {
+            if (!response.ok) throw new Error('score failed');
+            return response.text();
+        }).then(function (html) {
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var titleNode = doc.querySelector('.rank-title');
+            if (!titleNode) {
+                window.location.href = '/game';
+                return;
+            }
+            var tier = titleNode.getAttribute('data-tier');
+            var lineNode = doc.querySelector('.rank-line');
+            var wait = window.HGSound ? HGSound.finish(tier) : 700;
+            var stamp = showStamp(titleNode.textContent, lineNode ? lineNode.textContent : '', tier);
+            if (doc.querySelector('.perfect') && stamp) {
+                var sweep = document.createElement('p');
+                sweep.className = 'perfect';
+                sweep.textContent = 'Clean sweep';
+                stamp.insertBefore(sweep, stamp.firstChild);
+                var scraps = document.createElement('div');
+                scraps.className = 'scraps';
+                scraps.setAttribute('aria-hidden', 'true');
+                for (var scrap = 0; scrap < 16; scrap += 1) {
+                    scraps.appendChild(document.createElement('span')).className = 'scrap';
+                }
+                stamp.insertBefore(scraps, stamp.firstChild);
+            }
+            try { sessionStorage.setItem('hg-stung', '1'); } catch (err) {}
+            window.setTimeout(function () {
+                window.location.href = '/results';
+            }, wait);
+        }).catch(function () {
+            busy = false;
+            form.submit();
+        });
+    }
+
+    form.addEventListener('click', function (event) {
+        var button = event.target.closest('.lock');
+        if (!button) return;
+        if (holding) {
+            event.preventDefault();
+            releaseHold();
+            return;
+        }
+        if (busy) return;
+        var card = cards[index];
+        var select = card.querySelector('select');
+        if (!select.value) {
+            event.preventDefault();
+            showMiss(card);
+            return;
+        }
+        if (index === total - 1) return;
+        event.preventDefault();
+        showNext();
+    });
+
+    form.addEventListener('keydown', function (event) {
+        if (holding && event.key === 'Enter') {
+            event.preventDefault();
+            releaseHold();
+            return;
+        }
+        if (busy) return;
+        var card = cards[index];
+        if (event.key >= '1' && event.key <= '5') {
+            var choice = card.querySelectorAll('.choice')[Number(event.key) - 1];
+            if (!choice) return;
+            event.preventDefault();
+            selectChoice(card, choice.getAttribute('data-value'));
+            return;
+        }
+        if (event.key !== 'Enter') return;
+        var pressed = event.target.closest && event.target.closest('.choice');
+        var select = card.querySelector('select');
+        if (pressed && pressed.getAttribute('data-value') !== select.value) return;
+        if (!select.value) {
+            event.preventDefault();
+            showMiss(card);
+            return;
+        }
+        event.preventDefault();
+        card.querySelector('.lock').click();
+    });
+
+    updateProgress();
+    fitLock(cards[0]);
+    if (readClock().day === roundDay && readClock().start) {
+        paintLive();
+        clockTimer = window.setInterval(paintLive, 250);
+    }
+    try {
+        sessionStorage.removeItem('hg-stung');
+        sessionStorage.removeItem('hg-rum-done');
+    } catch (err) {}
+    if (window.HGSound) HGSound.mountToggle();
+    if (form.focus) form.focus({ preventScroll: true });
+})();
