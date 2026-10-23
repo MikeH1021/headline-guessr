@@ -238,7 +238,8 @@
         fitLock(upcoming);
 
         var finished = false;
-        function done() {
+        function done(event) {
+            if (event && event.target !== current) return;
             if (finished) return;
             finished = true;
             current.classList.remove('is-leaving');
