@@ -13,7 +13,7 @@ Headline Guessr runs as a single Docker container. Next.js and the database live
 
 The first boot copies `round.json`, `scores.json`, `settings.json`, `rum.json`, `queue.json`, and `refresh_status.json` when those files are visible in `/legacy` and the database is empty. It reads them. It does not rewrite them.
 
-`docker compose up --build` is the run command. The site listens on port 3000.
+`docker compose up -d --build` is the run command. The container listens on port 3000 and publishes it on port 8110.
 
 ## Later: Kubernetes
 

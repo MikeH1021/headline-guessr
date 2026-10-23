@@ -3,14 +3,14 @@
 #
 #   docker compose up -d --build
 #
-# The site listens on port 3000, or on HG_PORT if you set it.
+# The site is published on port 8110. The app inside the container still listens on 3000.
 services:
   headline-guessr:
     build: .
     image: headline-guessr:latest
     container_name: headline-guessr
     ports:
-      - "${HG_PORT:-3000}:3000"
+      - "${HG_PORT:-8110}:3000"
     env_file:
       - .env
     environment:
