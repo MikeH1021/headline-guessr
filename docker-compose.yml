@@ -16,6 +16,7 @@ services:
     environment:
       DATA_DIR: /data
       NODE_ENV: production
+      TZ: ${TZ:-America/New_York}
     volumes:
       - ${HG_DATA:-./data}:/data
     restart: unless-stopped
