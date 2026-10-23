@@ -73,6 +73,10 @@ assert.equal(tokenExpiring(fakeJwt(Math.floor(Date.now() / 1000) + 7200), 0), fa
 assert.equal(tokenExpiring(fakeJwt(Math.floor(Date.now() / 1000) + 30), 0), true)
 assert.equal(devicePollKind(400, { error: 'authorization_pending' }), 'pending')
 assert.equal(devicePollKind(400, { error: 'slow_down' }), 'slow')
+assert.equal(devicePollKind(429, null), 'slow')
+assert.equal(devicePollKind(200, { access_token: 'access-only', expires_in: 900 }), 'ok')
+assert.equal(devicePollKind(500, { error: 'server_error' }), 'wait')
+assert.equal(devicePollKind(400, { error: 'access_denied' }), 'denied')
 assert.equal(refreshGrant({ access_token: 'access-new', expires_in: 3600 }, 'refresh-old')?.refreshToken, 'refresh-old')
 assert.equal(refreshGrant({ access_token: 'access-new', expires_in: 3600 }) , null)
 assert.equal(XAI_OAUTH_DISCOVERY_URL, 'https://auth.x.ai/.well-known/openid-configuration')
@@ -314,6 +318,11 @@ async function checkImport() {
   assert.equal(JSON.stringify(account).includes('device-secret'), false)
   const hidden = database.prepare('SELECT device_code FROM oauth WHERE id = 1').get() as { device_code: string }
   assert.equal(hidden.device_code, 'device-secret')
+  const beforeWait = posts.length
+  const waiting = await session.pollPending()
+  assert.equal(waiting.pending, true)
+  assert.equal(posts.length, beforeWait)
+  database.prepare('UPDATE oauth SET last_poll_at = 0 WHERE id = 1').run()
   account = await session.pollPending()
   assert.equal(account.connected, true)
   assert.equal(account.pending, false)
@@ -574,6 +583,26 @@ async function checkImport() {
     session.noteSubscriptionFallback(note),
   ])
   assert.equal(jobSnapshot().events.filter((event) => event.message === note).length, 1)
+
+  const keepUntil = Date.now() + 600_000
+  database.prepare(
+    `UPDATE oauth SET device_code = ?, user_code = ?, verification_uri = ?, poll_interval = ?,
+      device_expires_at = ?, last_poll_at = 0, token_endpoint = ?, refresh_token = '', access_token = ''
+     WHERE id = 1`,
+  ).run('device-keep', 'KEEP-CODE', 'https://auth.x.ai/device', 5, keepUntil, 'https://auth.x.ai/oauth2/token')
+  session.setOauthTransport({
+    async getJson() {
+      return { status: 200, json: { token_endpoint: 'https://auth.x.ai/oauth2/token' } }
+    },
+    async postForm() {
+      return { status: 429, json: null }
+    },
+  })
+  const paced = await session.pollPending()
+  assert.equal(paced.pending, true)
+  assert.equal(paced.connected, false)
+  const keptDevice = database.prepare('SELECT device_code FROM oauth WHERE id = 1').get() as { device_code: string }
+  assert.equal(keptDevice.device_code, 'device-keep')
   session.setOauthTransport(null)
 
   database.close()

@@ -7,9 +7,9 @@ import {
   XAI_OAUTH_SCOPE,
   assertXaiUrl,
   deviceChallenge,
+  deviceGrant,
   devicePollKind,
   discoveryEndpoints,
-  grantFromToken,
   refreshGrant,
   safeOauthDetail,
   tokenExpiring,
@@ -202,14 +202,20 @@ function hasApiKey() {
   return Boolean((process.env.XAI_API_KEY || '').trim())
 }
 
+function signedIn(row: Row) {
+  if (row.refreshToken) return true
+  return Boolean(row.accessToken) && !tokenExpiring(row.accessToken, row.expiresAt)
+}
+
 export async function oauthPublic(): Promise<OauthPublic> {
   const row = await readRow()
   const pending = Boolean(row.deviceCode && row.deviceExpiresAt > Date.now())
   const verificationUrl = pending ? pinnedUrl(row.verificationUrl) : ''
+  const connected = signedIn(row)
   return {
-    connected: Boolean(row.refreshToken),
+    connected,
     email: row.email,
-    billing: row.refreshToken ? 'subscription' : hasApiKey() ? 'api-key' : 'none',
+    billing: connected ? 'subscription' : hasApiKey() ? 'api-key' : 'none',
     pending: pending && Boolean(verificationUrl),
     userCode: pending ? row.userCode : '',
     verificationUrl,
@@ -241,7 +247,7 @@ export async function beginSignIn() {
       verificationUrl: challenge.verificationUrl,
       pollInterval: challenge.interval,
       deviceExpiresAt: Date.now() + challenge.expiresIn * 1000,
-      lastPollAt: 0,
+      lastPollAt: Date.now(),
       tokenEndpoint: endpoints.token,
       lastError: '',
     })
@@ -303,23 +309,26 @@ async function pollOnce() {
   }))
   const kind = devicePollKind(response.status, response.json)
   if (kind === 'pending') return oauthPublic()
-  if (kind === 'slow') {
-    await writeRow({ pollInterval: Math.min(row.pollInterval + 5, 30) })
+  if (kind === 'slow' || kind === 'wait') {
+    const detail = safeOauthDetail(response.json, row.deviceCode)
+    await writeRow({
+      pollInterval: kind === 'slow' ? Math.min(row.pollInterval + 5, 30) : row.pollInterval,
+      lastError: detail && kind === 'wait' ? detail : '',
+    })
     return oauthPublic()
   }
   if (kind !== 'ok') {
+    const detail = safeOauthDetail(response.json, row.deviceCode)
     await writeRow({
       deviceCode: '',
       userCode: '',
       verificationUrl: '',
       deviceExpiresAt: 0,
-      lastError: kind === 'dead'
-        ? 'Grok rejected that sign-in code. Start again.'
-        : 'The sign-in was declined or expired. Start again.',
+      lastError: detail || 'The sign-in was declined or expired. Start again.',
     })
     return oauthPublic()
   }
-  const grant = grantFromToken(response.json)
+  const grant = deviceGrant(response.json)
   if (!grant) {
     await writeRow({ lastError: 'Grok did not finish the sign-in.' })
     return oauthPublic()
@@ -422,8 +431,8 @@ export function subscriptionAccessToken() {
     pending = (async () => {
       try {
         const row = await readRow()
-        if (!row.refreshToken) return null
         if (row.accessToken && !tokenExpiring(row.accessToken, row.expiresAt)) return row.accessToken
+        if (!row.refreshToken) return null
         return await refreshOnce()
       } catch {
         const row = await readRow().catch(() => null)

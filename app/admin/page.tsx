@@ -211,7 +211,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           )}
           {grok.pending && (
             <div id="grok-pending" data-poll={grok.pollSeconds}>
-              <p>Open the sign-in page and approve this code. This page updates when that finishes. Cancel leaves the saved sign-in as it is.</p>
+              <p>Open the sign-in page and approve this code. Leave this page open. It changes to signed in after the approval is seen. Cancel leaves the saved sign-in as it is.</p>
               <p className="grok-code" id="grok-user-code">{grok.userCode}</p>
               <p><a href={grok.verificationUrl} target="_blank" rel="noreferrer noopener">Open the sign-in page</a></p>
               <button className="btn btn-ghost" type="button" id="grok-copy">Copy code</button>

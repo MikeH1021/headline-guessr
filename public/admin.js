@@ -45,14 +45,13 @@
         }
         window.setTimeout(function pollGrok() {
             fetch('/admin/oauth', { headers: { Accept: 'application/json' } }).then(function (response) {
-                if (!response.ok) return null;
+                if (!response.ok) throw new Error('status');
                 return response.json();
             }).then(function (data) {
-                if (!data) return;
-                if (data.pending) {
+                if (!data || data.pending) {
                     var live = document.getElementById('grok-live');
-                    if (live) live.textContent = data.error || '';
-                    grokWait = Math.max(5, Number(data.pollSeconds) || 5) * 1000;
+                    if (live) live.textContent = data && data.error ? data.error : '';
+                    if (data) grokWait = Math.max(5, Number(data.pollSeconds) || 5) * 1000;
                     window.setTimeout(pollGrok, grokWait);
                 } else window.location.replace('/admin');
             }).catch(function () {

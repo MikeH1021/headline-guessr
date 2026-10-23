@@ -137,14 +137,31 @@ export function grantFromToken(json: unknown) {
   return refreshGrant(json)
 }
 
-export function devicePollKind(status: number, json: unknown): 'ok' | 'pending' | 'slow' | 'denied' | 'dead' {
-  if (status === 200 && grantFromToken(json)) return 'ok'
+export function deviceGrant(json: unknown) {
+  const grant = refreshGrant(json, '')
+  if (grant) return grant
+  if (!json || typeof json !== 'object' || Array.isArray(json)) return null
+  const record = json as Record<string, unknown>
+  const accessToken = typeof record.access_token === 'string' ? record.access_token : ''
+  if (!accessToken) return null
+  const idToken = typeof record.id_token === 'string' ? record.id_token : ''
+  const expiresIn = Number(record.expires_in)
+  return {
+    accessToken,
+    refreshToken: '',
+    email: emailFromIdToken(idToken),
+    expiresIn: Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 900,
+  }
+}
+
+export function devicePollKind(status: number, json: unknown): 'ok' | 'pending' | 'slow' | 'denied' | 'wait' {
   const error = json && typeof json === 'object' && !Array.isArray(json)
     ? String((json as Record<string, unknown>).error || '')
     : ''
+  if (status === 200 && deviceGrant(json)) return 'ok'
   if (error === 'authorization_pending') return 'pending'
-  if (error === 'slow_down') return 'slow'
-  if (error === 'access_denied' || error === 'expired_token') return 'denied'
-  if (status === 400 || status === 401) return 'dead'
-  return 'denied'
+  if (error === 'slow_down' || status === 429 || status === 408) return 'slow'
+  if (error === 'access_denied' || error === 'expired_token' || error === 'invalid_grant') return 'denied'
+  if (status >= 500 || status === 403 || status === 0 || !error) return 'wait'
+  return 'wait'
 }
