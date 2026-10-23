@@ -1,6 +1,7 @@
 import {
   CANDIDATE_SIZE,
   ETHNICITIES,
+  ETHNICITY_CONCURRENCY,
   ETHNICITY_SCHEMA,
   FEED_SCAN,
   PER_FEED,
@@ -83,9 +84,9 @@ async function assignEthnicities(stories: { source: string; headline: string; co
     headline: story.headline,
     copy: story.copy,
   }))
-  const instructions = `${currentPrompt().trim()}\n\nWeb search is available. If the article does not state the perpetrator's ethnicity, search for news reporting on the same incident or person. `
-    + `Set stated to true only when the article or a news report from that search explicitly states an ethnicity, and only when it is one of ${ETHNICITIES.join(', ')}. `
-    + 'Otherwise set stated to false and ethnicity to null. Do not infer ethnicity from a name. Do not include a person\'s name.'
+  const instructions = `${currentPrompt().trim()}\n\nWeb search is available. If the article does not state the perpetrator's ethnicity, search for other news reports on the same incident or person and read them. If that search does not state it, search again with a different query. `
+    + `Set stated to true only when the article or one of those news reports explicitly states an ethnicity, and only when it is one of ${ETHNICITIES.join(', ')}. `
+    + 'Otherwise set stated to false and ethnicity to null. Do not infer ethnicity from a name, a photo, a neighborhood, or a stereotype. Do not include a person\'s name.'
     + `\n\nArticles:\n${JSON.stringify(numbered)}`
   const { parsed, reasoning } = await grok(
     instructions,
@@ -93,6 +94,7 @@ async function assignEthnicities(stories: { source: string; headline: string; co
     ETHNICITY_SCHEMA,
     'ethnicity',
     [{ type: 'web_search' }],
+    'high',
   )
   if (reasoning) jobLog('Ethnicity notes.', reasoning)
   const record = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as { answers?: unknown } : null
@@ -140,6 +142,20 @@ async function classifyOne(story: GatheredStory) {
   return 'done'
 }
 
+async function readNext(group: PickedStory[]) {
+  while (group.length) {
+    const story = group.shift()
+    if (!story) return
+    try {
+      if (await classifyOne(story) !== 'skip') return
+    } catch (err) {
+      const message = err instanceof HeadlineError ? err.message : 'That article could not be read.'
+      if (!message.includes('xai-')) jobLog(message)
+      return
+    }
+  }
+}
+
 async function classifySpread(picked: PickedStory[], stopAt: number) {
   const order: string[] = []
   const groups = new Map<string, PickedStory[]>()
@@ -153,22 +169,23 @@ async function classifySpread(picked: PickedStory[], stopAt: number) {
   }
   let pass = 0
   while ([...groups.values()].some((group) => group.length)) {
-    pass += 1
-    jobLog(`Pass ${pass}. One article from each source that still has a candidate.`)
-    for (const source of order) {
-      const group = groups.get(source) || []
-      while (group.length) {
-        const story = group.shift()
-        if (!story) break
-        if (await classifyOne(story) !== 'skip') break
-      }
-    }
     if (readQueue().length >= stopAt) {
       jobLog(stopAt >= QUEUE_CAP
         ? `The queue is full at ${QUEUE_CAP}.`
         : `The queue can fill a round of ${ROUND_SIZE}. Later sources in this pass were included.`)
       break
     }
+    pass += 1
+    const wave: PickedStory[][] = []
+    for (const source of order) {
+      const group = groups.get(source) || []
+      if (!group.length) continue
+      wave.push(group)
+      if (wave.length >= ETHNICITY_CONCURRENCY) break
+    }
+    if (!wave.length) break
+    jobLog(`Pass ${pass}. Reading ${wave.length} articles at once.`)
+    await Promise.all(wave.map((group) => readNext(group)))
   }
 }
 

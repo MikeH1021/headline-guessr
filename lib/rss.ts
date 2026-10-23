@@ -163,9 +163,53 @@ export function jsonStringAt(html: string, key: string) {
   }
 }
 
+function clipCopy(value: string) {
+  return value.replace(/\s+/g, ' ').trim().slice(0, 7000)
+}
+
+function articleBodyFrom(value: unknown): string {
+  if (!value || typeof value !== 'object') return ''
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = articleBodyFrom(item)
+      if (found.length >= 200) return found
+    }
+    return ''
+  }
+  const record = value as Record<string, unknown>
+  if (typeof record.articleBody === 'string' && record.articleBody.trim().length >= 200) {
+    return record.articleBody.trim()
+  }
+  if (record['@graph']) return articleBodyFrom(record['@graph'])
+  return ''
+}
+
+export function jsonLdArticle(html: string) {
+  for (const match of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const found = articleBodyFrom(JSON.parse(match[1] || ''))
+      if (found.length >= 200) return found
+    } catch {
+      continue
+    }
+  }
+  return ''
+}
+
+export function articleText(html: string) {
+  const structured = jsonLdArticle(html)
+    || jsonStringAt(html, '"articleBody":"')
+    || jsonStringAt(html, '"articleBody": "')
+  if (structured.length >= 200) return clipCopy(structured)
+  const copy = paragraphs(html)
+  return clipCopy(copy || structured)
+}
+
 export function paragraphs(html: string) {
+  const article = html.match(/<article\b[^>]*>[\s\S]{0,80000}?<\/article>/i)
   const marker = html.indexOf('single__content entry-content')
-  const chunk = marker === -1 ? html : html.slice(marker, marker + 60000)
+  const chunk = article?.[0]
+    || (marker === -1 ? html : html.slice(marker, marker + 60000))
   const found: string[] = []
   for (const match of chunk.matchAll(/<p[^>]*>(.*?)<\/p>/gis)) {
     const text = cleanTitle(match[1] || '')
@@ -179,9 +223,7 @@ export function paragraphs(html: string) {
 export async function articleCopy(url: string) {
   const html = await fetchText(url)
   if (!html) return ''
-  let copy = jsonStringAt(html, '"articleBody":"')
-  if (copy.length < 200) copy = paragraphs(html)
-  return copy.replace(/\s+/g, ' ').trim().slice(0, 7000)
+  return articleText(html)
 }
 
 export async function storyCopy(story: GatheredStory) {

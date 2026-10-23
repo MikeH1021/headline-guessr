@@ -10,7 +10,16 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>
 }
 
-export function grokBody(modelId: string, instructions: string, schemaName: string, schema: unknown, tools?: unknown[]) {
+const REASONING_MODELS = new Set(['grok-4.7', 'grok-4.6', 'grok-4.5'])
+
+export function grokBody(
+  modelId: string,
+  instructions: string,
+  schemaName: string,
+  schema: unknown,
+  tools?: unknown[],
+  effort?: 'low' | 'medium' | 'high' | 'xhigh',
+) {
   const body: Record<string, unknown> = {
     model: modelId,
     input: instructions,
@@ -24,8 +33,9 @@ export function grokBody(modelId: string, instructions: string, schemaName: stri
     },
   }
   if (tools) body.tools = tools
-  if (modelId === 'grok-4.7' || modelId === 'grok-4.6' || modelId === 'grok-4.5') {
-    body.reasoning = { effort: 'low' }
+  if (REASONING_MODELS.has(modelId)) {
+    const allowed = modelId === 'grok-4.5' ? ['low', 'medium', 'high'] : ['low', 'medium', 'high', 'xhigh']
+    body.reasoning = { effort: effort && allowed.includes(effort) ? effort : 'low' }
   }
   return body
 }
@@ -98,7 +108,14 @@ function reasoningText(payload: Record<string, unknown>) {
   return chunks.filter(Boolean).join('\n\n').slice(0, 6000)
 }
 
-export async function grok(instructions: string, schemaName: string, schema: unknown, step = 'the request', tools?: unknown[]) {
+export async function grok(
+  instructions: string,
+  schemaName: string,
+  schema: unknown,
+  step = 'the request',
+  tools?: unknown[],
+  effort?: 'low' | 'medium' | 'high' | 'xhigh',
+) {
   loadEnv()
   const apiKey = (process.env.XAI_API_KEY || '').trim()
   if (!apiKey) {
@@ -112,7 +129,7 @@ export async function grok(instructions: string, schemaName: string, schema: unk
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(grokBody(currentModel(), instructions, schemaName, schema, tools)),
+      body: JSON.stringify(grokBody(currentModel(), instructions, schemaName, schema, tools, effort)),
       signal: AbortSignal.timeout(240_000),
     })
   } catch (err) {

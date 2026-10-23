@@ -8,7 +8,8 @@ import { feedName, feedUrl, publicFeedUrl } from '../lib/feeds'
 import { passwordMatches } from '../lib/password'
 import { publicOrigin } from '../lib/public-url'
 import { accuracyPercentile, median, ordinal, paceLabel, percentileRank, pythonRound, rankForScore, rankTier } from '../lib/scoring'
-import { storiesFromRss, takeUnseen } from '../lib/rss'
+import { canonicalEthnicity } from '../lib/ethnicity'
+import { articleText, storiesFromRss, takeUnseen } from '../lib/rss'
 
 assert.equal(pythonRound(12.5), 12)
 assert.equal(pythonRound(13.5), 14)
@@ -117,6 +118,18 @@ assert.equal(dug.checked, 16)
 const capped = takeUnseen(older, (index) => index < 2, 4)
 assert.deepEqual(capped.fresh, [2, 3, 4, 5])
 assert.equal(capped.checked, 2)
+assert.equal(canonicalEthnicity('Latino'), 'Hispanic')
+assert.equal(canonicalEthnicity('Latina'), 'Hispanic')
+assert.equal(canonicalEthnicity('African-American'), 'Black')
+assert.equal(canonicalEthnicity('Caucasian'), 'White')
+assert.equal(canonicalEthnicity('Middle-Eastern'), 'Middle Eastern')
+assert.equal(canonicalEthnicity('White'), 'White')
+assert.equal(canonicalEthnicity('Chinese'), '')
+assert.equal(canonicalEthnicity('mixed'), '')
+const stated = 'Police said the suspect, described as a Black man, was arrested after the robbery downtown. '
+const body = `<html><script type="application/ld+json">{"@graph":[{"@type":"NewsArticle","articleBody":"${stated.repeat(4)}"}]}</script><p>Menu item that should not win.</p></html>`
+assert.ok(articleText(body).includes('described as a Black man'))
+assert.ok(articleText(body).length >= 200)
 
 const legacy = fs.mkdtempSync(path.join(os.tmpdir(), 'hg-legacy-'))
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'hg-data-'))
@@ -144,6 +157,14 @@ async function checkImport() {
   assert.equal(count.n, 1)
   assert.equal(fs.readFileSync(path.join(legacy, 'scores.json'), 'utf8'), scores)
   assert.equal(fs.statSync(path.join(legacy, 'scores.json')).mtimeMs, scoreMtime)
+
+  const { grokBody } = await import('../lib/grok')
+  const high = grokBody('grok-4.7', 'x', 'n', { type: 'object' }, undefined, 'high') as { reasoning?: { effort: string } }
+  const low = grokBody('grok-4.7', 'x', 'n', { type: 'object' }) as { reasoning?: { effort: string } }
+  const olderModel = grokBody('grok-4.3', 'x', 'n', { type: 'object' }, undefined, 'high') as { reasoning?: unknown }
+  assert.equal(high.reasoning?.effort, 'high')
+  assert.equal(low.reasoning?.effort, 'low')
+  assert.equal(olderModel.reasoning, undefined)
 
   const { currentModel, readRound } = await import('../lib/store')
   const { buildRound } = await import('../lib/roundview')

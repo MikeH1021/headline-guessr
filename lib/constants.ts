@@ -53,6 +53,7 @@ export const CANDIDATE_SIZE = 16
 export const PER_FEED = 16
 export const FEED_SCAN = 80
 export const SCREEN_BATCH = 16
+export const ETHNICITY_CONCURRENCY = 4
 export const MAX_FEEDS = 40
 export const QUEUE_CAP = 200
 export const SCORE_CAP = 250_000
