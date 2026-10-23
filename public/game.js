@@ -184,8 +184,16 @@
         lock.classList.toggle('is-wrong', !correct);
         if (correct) correctCount += 1;
         if (pips[index]) pips[index].classList.add(correct ? 'is-right' : 'is-wrong');
-        if (tally) tally.textContent = correctCount + ' right';
+        if (tally) {
+            tally.textContent = correctCount + ' right';
+            tally.classList.toggle('is-hot', correctCount > 0);
+        }
         if (lock.scrollIntoView) lock.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+        var wrap = document.querySelector('.stage-wrap');
+        if (wrap) {
+            wrap.classList.add('is-flipping');
+            window.setTimeout(function () { wrap.classList.remove('is-flipping'); }, reduce ? 40 : 720);
+        }
         if (window.HGSound) {
             if (correct) HGSound.right();
             else HGSound.wrong();
@@ -264,6 +272,10 @@
         var stamp = document.createElement('div');
         stamp.className = 'stamp' + (tier ? ' is-' + tier : '');
         stamp.setAttribute('role', 'status');
+        var grain = document.createElement('div');
+        grain.className = 'stamp-grain';
+        grain.setAttribute('aria-hidden', 'true');
+        stamp.appendChild(grain);
         var row = document.querySelector('.pips');
         if (row) {
             var clone = row.cloneNode(true);
