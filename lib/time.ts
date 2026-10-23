@@ -42,3 +42,11 @@ export function roundLabel(raw: string) {
     roundDay: raw,
   }
 }
+
+export function shortRoundLabel(raw: string, now = new Date()) {
+  const labeled = roundLabel(raw)
+  if (!labeled.roundDay) return labeled.label
+  const [year, month, day] = raw.split('-').map(Number)
+  const short = `${MONTHS[month - 1].slice(0, 3)} ${day}`
+  return year === now.getFullYear() ? short : `${short}, ${year}`
+}

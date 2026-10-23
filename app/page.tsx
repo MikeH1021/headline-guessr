@@ -1,9 +1,17 @@
 import { currentSession } from '@/lib/session'
 import { listArchives, saveSession } from '@/lib/store'
 import { resultForDay, roundContext, todayPlay } from '@/lib/roundview'
-import { roundLabel } from '@/lib/time'
+import { shortRoundLabel } from '@/lib/time'
+import type { LastResult } from '@/lib/types'
 
 export const metadata = { title: 'Headline Guessr' }
+
+function marksFor(saved: LastResult | null) {
+  const answers = saved?.answers || []
+  const guesses = saved?.userAnswers || []
+  if (!answers.length || guesses.length !== answers.length) return null
+  return guesses.map((guess, index) => guess === answers[index])
+}
 
 export default async function HomePage() {
   const { id, data } = await currentSession()
@@ -75,12 +83,20 @@ export default async function HomePage() {
             <ul className="archive-list">
               {past.map((item) => {
                 const saved = resultForDay(data, item.refreshedOn)
-                const label = roundLabel(item.refreshedOn).label
+                const marks = marksFor(saved)
+                const total = saved?.answers?.length || item.count
                 return (
-                  <li key={item.refreshedOn}>
-                    <span>{label}</span>
+                  <li key={item.refreshedOn} data-day={item.refreshedOn}>
+                    <span className="archive-day">{shortRoundLabel(item.refreshedOn)}</span>
+                    {marks && (
+                      <span className="mini" aria-hidden="true">
+                        {marks.map((right, index) => (
+                          <span key={index} className={right ? 'is-right' : 'is-wrong'} />
+                        ))}
+                      </span>
+                    )}
+                    {saved && <span className="edition-score">{saved.score}/{total}</span>}
                     <span className="archive-links">
-                      {saved && <span>{saved.score}/{saved.answers?.length || item.count}</span>}
                       <a href={`/game?day=${item.refreshedOn}`}>{saved ? 'Play again' : 'Play'}</a>
                       {saved && <a href={`/results?day=${item.refreshedOn}`}>Result</a>}
                     </span>

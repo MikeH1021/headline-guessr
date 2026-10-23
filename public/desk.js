@@ -61,7 +61,10 @@
     function dayLabel(iso) {
         var parts = String(iso).split('-');
         var month = MONTHS[Number(parts[1]) - 1] || '';
-        return month + ' ' + Number(parts[2]);
+        var label = month + ' ' + Number(parts[2]);
+        var year = Number(parts[0]);
+        if (year && year !== new Date().getFullYear()) label += ', ' + year;
+        return label;
     }
 
     function formatPace(ms) {
@@ -72,15 +75,25 @@
         return minutes + 'm ' + String(seconds).padStart(2, '0') + 's';
     }
 
-    function tiles(marks, parent) {
+    function scoreLabel(row) {
+        var text = (Number(row.score) || 0) + '/' + (Number(row.total) || 0);
+        if (row.ms) text += ' · ' + formatPace(row.ms);
+        return text;
+    }
+
+    function tiles(marks, parent, before) {
         var row = document.createElement('span');
         row.className = 'mini';
+        row.setAttribute('aria-hidden', 'true');
         String(marks || '').split('').forEach(function (mark) {
+            if (!mark) return;
             var cell = document.createElement('span');
             cell.className = mark === 'r' ? 'is-right' : 'is-wrong';
             row.appendChild(cell);
         });
-        parent.appendChild(row);
+        if (!row.childNodes.length) return;
+        if (before) parent.insertBefore(row, before);
+        else parent.appendChild(row);
     }
 
     function editionRow(iso, row) {
@@ -91,10 +104,43 @@
         when.textContent = dayLabel(iso);
         var score = document.createElement('span');
         score.className = 'edition-score';
-        score.textContent = (Number(row.score) || 0) + '/' + (Number(row.total) || 0);
-        if (row.ms) score.textContent += ' · ' + formatPace(row.ms);
+        score.textContent = scoreLabel(row);
         item.appendChild(when);
         tiles(row.marks, item);
+        item.appendChild(score);
+        return item;
+    }
+
+    function fillArchive(days) {
+        document.querySelectorAll('.archive-list [data-day]').forEach(function (item) {
+            var row = days[item.getAttribute('data-day')];
+            if (!row) return;
+            var links = item.querySelector('.archive-links');
+            if (row.marks && !item.querySelector('.mini')) tiles(row.marks, item, links);
+            var score = item.querySelector('.edition-score');
+            if (!score && (row.marks || row.score || row.total)) {
+                score = document.createElement('span');
+                score.className = 'edition-score';
+                score.textContent = scoreLabel(row);
+                if (links) item.insertBefore(score, links);
+                else item.appendChild(score);
+            } else if (score && row.ms && score.textContent.indexOf('·') === -1) {
+                score.textContent += ' · ' + formatPace(row.ms);
+            }
+        });
+    }
+
+    function localEdition(iso, row) {
+        var item = document.createElement('li');
+        item.setAttribute('data-day', iso);
+        var when = document.createElement('span');
+        when.className = 'archive-day';
+        when.textContent = dayLabel(iso);
+        item.appendChild(when);
+        tiles(row.marks, item);
+        var score = document.createElement('span');
+        score.className = 'edition-score';
+        score.textContent = scoreLabel(row);
         item.appendChild(score);
         return item;
     }
@@ -181,12 +227,23 @@
     }
 
     function paintEarlier() {
+        var days = loadCareer().days || {};
+        var list = document.querySelector('.archive-list');
+        var listed = {};
+        if (list) {
+            list.querySelectorAll('[data-day]').forEach(function (node) {
+                listed[node.getAttribute('data-day')] = true;
+            });
+            fillArchive(days);
+        }
+        var prior = Object.keys(days).filter(function (key) {
+            return key !== day && !listed[key];
+        }).sort().reverse().slice(0, 6);
+        if (list) prior.forEach(function (key) { list.appendChild(localEdition(key, days[key])); });
         var earlier = document.getElementById('earlier');
         if (!earlier) return;
-        var days = loadCareer().days || {};
-        var prior = Object.keys(days).filter(function (key) { return key !== day; }).sort().reverse().slice(0, 6);
         earlier.textContent = '';
-        if (!prior.length) {
+        if (list || !prior.length) {
             earlier.hidden = true;
             return;
         }

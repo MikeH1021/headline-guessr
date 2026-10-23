@@ -1305,9 +1305,9 @@ html.js .finish-fallback { display: none; }
 
 .archive-list li {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
     margin: 8px 0 0;
     padding: 12px 12px;
     border: 1px solid var(--line);
@@ -1315,17 +1315,37 @@ html.js .finish-fallback { display: none; }
     background: var(--paper-2);
 }
 
-.archive-list li > span:first-child {
+.archive-day {
+    min-width: 4.6rem;
     font-family: var(--serif);
     font-size: 1.08rem;
     color: var(--ink);
 }
+
+.archive-list .mini { flex: 1 1 140px; }
+
+.archive-list .mini span {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    color: var(--yes-ink);
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.archive-list .mini span.is-right::after { content: "✓"; }
+.archive-list .mini span.is-wrong { color: var(--no-ink); }
+.archive-list .mini span.is-wrong::after { content: "×"; }
 
 .archive-links {
     display: flex;
     flex-wrap: wrap;
     gap: 8px 14px;
     align-items: baseline;
+    margin-left: auto;
     color: var(--ink-soft);
 }
 

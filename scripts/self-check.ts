@@ -9,6 +9,7 @@ import { passwordMatches } from '../lib/password'
 import { publicOrigin } from '../lib/public-url'
 import { accuracyPercentile, median, ordinal, paceLabel, percentileRank, pythonRound, rankForScore, rankTier } from '../lib/scoring'
 import { canonicalEthnicity } from '../lib/ethnicity'
+import { shortRoundLabel } from '../lib/time'
 import { articleText, storiesFromRss, takeUnseen } from '../lib/rss'
 
 assert.equal(pythonRound(12.5), 12)
@@ -44,6 +45,10 @@ assert.equal(ordinal(12), '12th')
 assert.equal(ordinal(13), '13th')
 assert.equal(ordinal(21), '21st')
 assert.equal(ordinal(22), '22nd')
+assert.equal(shortRoundLabel('2026-10-22', new Date(2026, 9, 23)), 'Oct 22')
+assert.equal(shortRoundLabel('2025-01-03', new Date(2026, 9, 23)), 'Jan 3, 2025')
+assert.equal(shortRoundLabel('nope', new Date(2026, 9, 23)), 'nope')
+assert.equal(shortRoundLabel('2026-02-31', new Date(2026, 9, 23)), '2026-02-31')
 
 assert.equal(median([34 * 60 * 1000, 90_000].filter((ms) => ms <= 15 * 60 * 1000)), 90_000)
 assert.equal(paceLabel(90_000), '1m 30s')
