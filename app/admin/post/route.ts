@@ -7,6 +7,7 @@ import { jobSnapshot } from '@/lib/job'
 import { clearRum } from '@/lib/rum'
 import { addFeed, addHeadline, dropQueued, dropRoundCard, removeFeed, saveSettings, useQueued } from '@/lib/store'
 import { startRefresh } from '@/lib/classify'
+import { beginSignIn, cancelSignIn, disconnectGrok } from '@/lib/xai-session'
 import { publicUrl } from '@/lib/public-url'
 
 export const runtime = 'nodejs'
@@ -20,7 +21,13 @@ export async function POST(request: Request) {
   const form = await request.formData()
   const action = String(form.get('action') || '')
   let message = ''
-  if (action === 'refresh') {
+  if (action === 'grok_connect') {
+    message = (await beginSignIn()).message
+  } else if (action === 'grok_cancel') {
+    message = await cancelSignIn()
+  } else if (action === 'grok_disconnect') {
+    message = await disconnectGrok()
+  } else if (action === 'refresh') {
     if (form.get('debug_refresh') !== '1') message = 'Check Debug refresh, then run it.'
     else if (!startRefresh('deal')) message = 'A refresh is already running.'
     else message = 'Debug refresh started.'

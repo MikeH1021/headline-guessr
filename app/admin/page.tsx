@@ -5,6 +5,7 @@ import { ETHNICITIES, FEED_SCAN, GROK_MODELS, PER_FEED } from '@/lib/constants'
 import { rumPublic, rumSummary } from '@/lib/rum'
 import { currentFeeds, currentModel, currentPrompt, currentRefreshTime, queuePublic, readQueue, readRound } from '@/lib/store'
 import { headlineKey } from '@/lib/text'
+import { oauthPublic } from '@/lib/xai-session'
 
 export const metadata = { title: 'Admin — Headline Guessr' }
 
@@ -80,6 +81,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const prompt = currentPrompt()
   const refreshTime = currentRefreshTime()
   const rum = rumPublic(rumSummary())
+  const grok = await oauthPublic()
   const signature = queue.map((item) => item.key).join('|')
   return (
     <div className="frame frame-wide">
@@ -194,6 +196,41 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <details className="drawer">
           <summary>Stats</summary>
           <RumStats rum={rum} />
+        </details>
+        <details className="drawer" open>
+          <summary>Grok account</summary>
+          <p>Sign in with the Grok subscription. Classification spends that allowance. The API key is used only when xAI refuses the subscription. Signing in does not classify headlines.</p>
+          {grok.error && <p className="message">{grok.error}</p>}
+          {grok.fallback && <p className="message">{grok.fallback}</p>}
+          {grok.connected ? (
+            <p>Signed in{grok.email ? ` as ${grok.email}` : ''}. {grok.error || grok.fallback ? 'The note above is the last billing result.' : 'Requests use the subscription allowance.'}</p>
+          ) : grok.billing === 'api-key' ? (
+            <p>Not signed in. Requests use the API key and are billed per token.</p>
+          ) : (
+            <p>Not signed in, and no API key is set. A refresh cannot call Grok until you sign in.</p>
+          )}
+          {grok.pending && (
+            <div id="grok-pending" data-poll={grok.pollSeconds}>
+              <p>Open the sign-in page and approve this code. This page updates when that finishes. Cancel leaves the saved sign-in as it is.</p>
+              <p className="grok-code" id="grok-user-code">{grok.userCode}</p>
+              <p><a href={grok.verificationUrl} target="_blank" rel="noreferrer noopener">Open the sign-in page</a></p>
+              <button className="btn btn-ghost" type="button" id="grok-copy">Copy code</button>
+              <p className="note" id="grok-live"></p>
+              <form method="post" action="/admin/post" {...formQuiet}>
+                <button className="btn btn-ghost" type="submit" name="action" value="grok_cancel">Cancel</button>
+              </form>
+            </div>
+          )}
+          {!grok.pending && (
+            <form method="post" action="/admin/post" {...formQuiet}>
+              <button className="btn" type="submit" name="action" value="grok_connect">{grok.connected ? 'Sign in again' : 'Sign in with Grok'}</button>
+            </form>
+          )}
+          {grok.connected && (
+            <form method="post" action="/admin/post" data-confirm="Sign out of Grok on this server?" {...formQuiet}>
+              <button className="btn btn-ghost" type="submit" name="action" value="grok_disconnect">Sign out of Grok</button>
+            </form>
+          )}
         </details>
         <details className="drawer" open>
           <summary>Refresh</summary>

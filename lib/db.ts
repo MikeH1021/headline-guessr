@@ -281,6 +281,25 @@ function migrate(database: Database.Database) {
       status TEXT NOT NULL,
       checked_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS oauth (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      access_token TEXT NOT NULL DEFAULT '',
+      refresh_token TEXT NOT NULL DEFAULT '',
+      expires_at INTEGER NOT NULL DEFAULT 0,
+      email TEXT NOT NULL DEFAULT '',
+      device_code TEXT NOT NULL DEFAULT '',
+      user_code TEXT NOT NULL DEFAULT '',
+      verification_uri TEXT NOT NULL DEFAULT '',
+      poll_interval INTEGER NOT NULL DEFAULT 5,
+      device_expires_at INTEGER NOT NULL DEFAULT 0,
+      last_poll_at INTEGER NOT NULL DEFAULT 0,
+      token_endpoint TEXT NOT NULL DEFAULT '',
+      last_error TEXT NOT NULL DEFAULT '',
+      fallback_note TEXT NOT NULL DEFAULT '',
+      refresh_failed_at INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
+    INSERT INTO oauth (id) VALUES (1) ON CONFLICT(id) DO NOTHING;
   `)
   const hasSettings = database.prepare('SELECT id FROM settings WHERE id = 1').get()
   if (!hasSettings) database.transaction(() => importLegacy(database))()

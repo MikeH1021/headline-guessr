@@ -2,6 +2,7 @@ import { XAI_URL } from './constants'
 import { HeadlineError } from './errors'
 import { loadEnv } from './env'
 import { currentModel } from './store'
+import { clearSubscriptionFallback, forceRefreshSubscription, noteSubscriptionFallback, subscriptionAccessToken } from './xai-session'
 
 type Json = null | string | number | boolean | Json[] | { [key: string]: Json }
 
@@ -108,6 +109,27 @@ function reasoningText(payload: Record<string, unknown>) {
   return chunks.filter(Boolean).join('\n\n').slice(0, 6000)
 }
 
+function apiKey() {
+  loadEnv()
+  return (process.env.XAI_API_KEY || '').trim()
+}
+
+async function postGrok(token: string, body: string) {
+  return fetch(XAI_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body,
+    signal: AbortSignal.timeout(240_000),
+  })
+}
+
+async function discard(response: Response) {
+  await response.text().catch(() => '')
+}
+
 export async function grok(
   instructions: string,
   schemaName: string,
@@ -116,29 +138,49 @@ export async function grok(
   tools?: unknown[],
   effort?: 'low' | 'medium' | 'high' | 'xhigh',
 ) {
-  loadEnv()
-  const apiKey = (process.env.XAI_API_KEY || '').trim()
-  if (!apiKey) {
-    throw new HeadlineError('Add your xAI API key as XAI_API_KEY in a .env file in this folder, then restart the app.')
+  const body = JSON.stringify(grokBody(currentModel(), instructions, schemaName, schema, tools, effort))
+  let token = await subscriptionAccessToken()
+  let source: 'subscription' | 'api-key' = token ? 'subscription' : 'api-key'
+  if (!token) token = apiKey()
+  if (!token) {
+    throw new HeadlineError('Sign in with Grok on the admin page, or add XAI_API_KEY in the server environment.')
   }
   let response: Response
   try {
-    response = await fetch(XAI_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(grokBody(currentModel(), instructions, schemaName, schema, tools, effort)),
-      signal: AbortSignal.timeout(240_000),
-    })
+    response = await postGrok(token, body)
+    if (source === 'subscription' && response.status === 401) {
+      await discard(response)
+      const refreshed = await forceRefreshSubscription()
+      if (refreshed) response = await postGrok(refreshed, body)
+      if (response.status === 401) {
+        const key = apiKey()
+        if (!key) throw new HeadlineError('The Grok sign-in expired. Sign in again on the admin page.')
+        await noteSubscriptionFallback('The Grok sign-in was rejected. This call used the API key.')
+        source = 'api-key'
+        await discard(response)
+        response = await postGrok(key, body)
+      }
+    }
+    if (source === 'subscription' && response.status === 403) {
+      await discard(response)
+      const key = apiKey()
+      if (!key) throw new HeadlineError(`Grok could not complete ${step} (HTTP 403).`)
+      await noteSubscriptionFallback('xAI refused the Grok subscription (HTTP 403). This call used the API key.')
+      source = 'api-key'
+      response = await postGrok(key, body)
+    }
   } catch (err) {
+    if (err instanceof HeadlineError) throw err
     if (err instanceof Error && err.name === 'TimeoutError') {
       throw new HeadlineError(`Grok took too long during ${step}.`)
     }
     throw new HeadlineError(`Grok could not be reached during ${step}.`)
   }
-  if (!response.ok) throw new HeadlineError(`Grok could not complete ${step} (HTTP ${response.status}).`)
+  if (!response.ok) {
+    await discard(response)
+    throw new HeadlineError(`Grok could not complete ${step} (HTTP ${response.status}).`)
+  }
+  if (source === 'subscription') await clearSubscriptionFallback()
   let raw: Record<string, unknown>
   try {
     raw = await response.json() as Record<string, unknown>

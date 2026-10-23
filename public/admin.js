@@ -29,6 +29,38 @@
         });
     }
 
+    var grokPending = document.getElementById('grok-pending');
+    if (grokPending) {
+        var grokWait = Math.max(5, Number(grokPending.getAttribute('data-poll')) || 5) * 1000;
+        var grokCopy = document.getElementById('grok-copy');
+        if (grokCopy) {
+            grokCopy.addEventListener('click', function () {
+                var codeNode = document.getElementById('grok-user-code');
+                var code = ((codeNode && codeNode.textContent) || '').trim();
+                if (!code || !navigator.clipboard || !navigator.clipboard.writeText) return;
+                navigator.clipboard.writeText(code).then(function () {
+                    grokCopy.textContent = 'Copied';
+                }).catch(function () {});
+            });
+        }
+        window.setTimeout(function pollGrok() {
+            fetch('/admin/oauth', { headers: { Accept: 'application/json' } }).then(function (response) {
+                if (!response.ok) return null;
+                return response.json();
+            }).then(function (data) {
+                if (!data) return;
+                if (data.pending) {
+                    var live = document.getElementById('grok-live');
+                    if (live) live.textContent = data.error || '';
+                    grokWait = Math.max(5, Number(data.pollSeconds) || 5) * 1000;
+                    window.setTimeout(pollGrok, grokWait);
+                } else window.location.replace('/admin');
+            }).catch(function () {
+                window.setTimeout(pollGrok, grokWait);
+            });
+        }, 1000);
+    }
+
     var drawn = 0;
     var drawnFirst = '';
 

@@ -10,6 +10,14 @@ import { publicOrigin } from '../lib/public-url'
 import { accuracyPercentile, median, ordinal, paceLabel, percentileRank, pythonRound, rankForScore, rankTier } from '../lib/scoring'
 import { canonicalEthnicity } from '../lib/ethnicity'
 import { shortRoundLabel } from '../lib/time'
+import {
+  XAI_OAUTH_DISCOVERY_URL,
+  devicePollKind,
+  emailFromIdToken,
+  refreshGrant,
+  tokenExpiring,
+  xaiUrlProblem,
+} from '../lib/xai-oauth'
 import { articleText, storiesFromRss, takeUnseen } from '../lib/rss'
 
 assert.equal(pythonRound(12.5), 12)
@@ -49,6 +57,25 @@ assert.equal(shortRoundLabel('2026-10-22', new Date(2026, 9, 23)), 'Oct 22')
 assert.equal(shortRoundLabel('2025-01-03', new Date(2026, 9, 23)), 'Jan 3, 2025')
 assert.equal(shortRoundLabel('nope', new Date(2026, 9, 23)), 'nope')
 assert.equal(shortRoundLabel('2026-02-31', new Date(2026, 9, 23)), '2026-02-31')
+
+function fakeJwt(exp: number, email = 'player@example.com') {
+  return `hdr.${Buffer.from(JSON.stringify({ exp, email })).toString('base64url')}.sig`
+}
+assert.equal(xaiUrlProblem('https://auth.x.ai/oauth2/token'), '')
+assert.equal(xaiUrlProblem('https://api.x.ai/v1/responses'), '')
+assert.equal(xaiUrlProblem('http://auth.x.ai/oauth2/token'), 'scheme')
+assert.equal(xaiUrlProblem('https://evil.example/token'), 'origin')
+assert.equal(xaiUrlProblem('https://auth.x.ai.evil.com/token'), 'origin')
+assert.equal(xaiUrlProblem('https://user:pass@auth.x.ai/token'), 'host')
+assert.equal(emailFromIdToken(fakeJwt(1_900_000_000, 'player@example.com')), 'player@example.com')
+assert.equal(emailFromIdToken('not-a-token'), '')
+assert.equal(tokenExpiring(fakeJwt(Math.floor(Date.now() / 1000) + 7200), 0), false)
+assert.equal(tokenExpiring(fakeJwt(Math.floor(Date.now() / 1000) + 30), 0), true)
+assert.equal(devicePollKind(400, { error: 'authorization_pending' }), 'pending')
+assert.equal(devicePollKind(400, { error: 'slow_down' }), 'slow')
+assert.equal(refreshGrant({ access_token: 'access-new', expires_in: 3600 }, 'refresh-old')?.refreshToken, 'refresh-old')
+assert.equal(refreshGrant({ access_token: 'access-new', expires_in: 3600 }) , null)
+assert.equal(XAI_OAUTH_DISCOVERY_URL, 'https://auth.x.ai/.well-known/openid-configuration')
 
 assert.equal(median([34 * 60 * 1000, 90_000].filter((ms) => ms <= 15 * 60 * 1000)), 90_000)
 assert.equal(paceLabel(90_000), '1m 30s')
@@ -212,6 +239,342 @@ async function checkImport() {
   assert.equal(dropRoundCard(added ? added.headline.toLowerCase() : '', false), 'Removed from today’s round.')
   assert.equal(readArchive('2026-10-21')?.cards.length, 1)
   assert.equal(buildRound('2026-10-20')[0].source, 'CBS')
+
+  const session = await import('../lib/xai-session')
+  const { XAI_OAUTH_CLIENT_ID } = await import('../lib/xai-oauth')
+  const posts: { url: string; body: URLSearchParams }[] = []
+  let refreshShape: 'rotate' | 'keep' = 'rotate'
+  session.setOauthTransport({
+    async getJson(url) {
+      assert.equal(url, 'https://auth.x.ai/.well-known/openid-configuration')
+      return {
+        status: 200,
+        json: {
+          token_endpoint: 'https://auth.x.ai/oauth2/token',
+          device_authorization_endpoint: 'https://auth.x.ai/oauth2/device/code',
+        },
+      }
+    },
+    async postForm(url, body) {
+      posts.push({ url, body })
+      if (body.get('scope')) {
+        assert.equal(body.get('client_id'), XAI_OAUTH_CLIENT_ID)
+        assert.equal(url, 'https://auth.x.ai/oauth2/device/code')
+        return {
+          status: 200,
+          json: {
+            device_code: 'device-secret',
+            user_code: 'ABCD-EFGH',
+            verification_uri_complete: 'https://auth.x.ai/device?user_code=ABCD-EFGH',
+            expires_in: 600,
+            interval: 5,
+          },
+        }
+      }
+      if (body.get('grant_type') === 'urn:ietf:params:oauth:grant-type:device_code') {
+        assert.equal(body.get('device_code'), 'device-secret')
+        return {
+          status: 200,
+          json: {
+            access_token: fakeJwt(Math.floor(Date.now() / 1000) + 3600),
+            refresh_token: 'refresh-secret',
+            expires_in: 3600,
+            id_token: fakeJwt(Math.floor(Date.now() / 1000) + 3600),
+          },
+        }
+      }
+      if (body.get('grant_type') === 'refresh_token') {
+        if (refreshShape === 'keep') {
+          refreshShape = 'rotate'
+          return {
+            status: 200,
+            json: {
+              access_token: fakeJwt(Math.floor(Date.now() / 1000) + 5000, 'player@example.com'),
+              expires_in: 5000,
+            },
+          }
+        }
+        return {
+          status: 200,
+          json: {
+            access_token: fakeJwt(Math.floor(Date.now() / 1000) + 7200, 'player@example.com'),
+            refresh_token: 'refresh-next',
+            expires_in: 7200,
+          },
+        }
+      }
+      throw new Error(`unexpected Grok sign-in post to ${url}`)
+    },
+  })
+  const started = await session.beginSignIn()
+  assert.equal(started.ok, true)
+  let account = await session.oauthPublic()
+  assert.equal(account.pending, true)
+  assert.equal(account.userCode, 'ABCD-EFGH')
+  assert.equal(JSON.stringify(account).includes('device-secret'), false)
+  const hidden = database.prepare('SELECT device_code FROM oauth WHERE id = 1').get() as { device_code: string }
+  assert.equal(hidden.device_code, 'device-secret')
+  account = await session.pollPending()
+  assert.equal(account.connected, true)
+  assert.equal(account.pending, false)
+  assert.equal(account.email, 'player@example.com')
+  assert.equal(account.billing, 'subscription')
+  assert.equal(JSON.stringify(account).includes('refresh-secret'), false)
+  assert.equal(JSON.stringify(account).includes('device-secret'), false)
+  const current = await session.subscriptionAccessToken()
+  assert.equal(typeof current, 'string')
+  assert.equal(posts.filter((item) => item.body.get('grant_type') === 'refresh_token').length, 0)
+  database.prepare('UPDATE oauth SET access_token = ?, expires_at = ? WHERE id = 1').run(
+    fakeJwt(Math.floor(Date.now() / 1000) - 30),
+    Date.now() - 1000,
+  )
+  const beforeRefresh = posts.length
+  const [first, second] = await Promise.all([
+    session.subscriptionAccessToken(),
+    session.subscriptionAccessToken(),
+  ])
+  assert.equal(first, second)
+  assert.equal(posts.length, beforeRefresh + 1)
+  const rotated = database.prepare('SELECT refresh_token FROM oauth WHERE id = 1').get() as { refresh_token: string }
+  assert.equal(rotated.refresh_token, 'refresh-next')
+  database.prepare('UPDATE oauth SET access_token = ?, expires_at = ? WHERE id = 1').run(
+    fakeJwt(Math.floor(Date.now() / 1000) - 30),
+    Date.now() - 1000,
+  )
+  const beforeSecond = posts.length
+  const again = await session.subscriptionAccessToken()
+  assert.equal(typeof again, 'string')
+  assert.equal(posts.length, beforeSecond + 1)
+  const expiredKeep = fakeJwt(Math.floor(Date.now() / 1000) - 30)
+  refreshShape = 'keep'
+  database.prepare('UPDATE oauth SET access_token = ?, expires_at = ? WHERE id = 1').run(expiredKeep, Date.now() - 1000)
+  const keptToken = await session.subscriptionAccessToken()
+  assert.equal(typeof keptToken, 'string')
+  assert.notEqual(keptToken, expiredKeep)
+  const kept = database.prepare('SELECT access_token, refresh_token FROM oauth WHERE id = 1').get() as {
+    access_token: string
+    refresh_token: string
+  }
+  assert.equal(kept.refresh_token, 'refresh-next')
+  assert.equal(kept.access_token, keptToken)
+  const previousKey = process.env.XAI_API_KEY
+  const previousFetch = globalThis.fetch
+  process.env.XAI_API_KEY = 'xai-self-check'
+  const seenAuth: string[] = []
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    if (url !== 'https://api.x.ai/v1/responses') return previousFetch(input, init)
+    const auth = new Headers(init?.headers).get('authorization') || ''
+    seenAuth.push(auth === 'Bearer xai-self-check' ? 'key' : 'sub')
+    if (auth !== 'Bearer xai-self-check') return new Response('no', { status: 401 })
+    return new Response(JSON.stringify({ output_text: '{"ok":true}' }), { status: 200 })
+  }) as typeof fetch
+  try {
+    const { grok } = await import('../lib/grok')
+    const answered = await grok('Say ok.', 'check', { type: 'object' }, 'the check')
+    assert.equal((answered.parsed as { ok?: boolean }).ok, true)
+  } finally {
+    globalThis.fetch = previousFetch
+    if (previousKey === undefined) delete process.env.XAI_API_KEY
+    else process.env.XAI_API_KEY = previousKey
+  }
+  assert.deepEqual(seenAuth, ['sub', 'sub', 'key'])
+  assert.match((await session.oauthPublic()).fallback, /API key/)
+  database.prepare('UPDATE oauth SET access_token = ?, expires_at = ?, refresh_failed_at = 0 WHERE id = 1').run(
+    fakeJwt(Math.floor(Date.now() / 1000) - 30),
+    Date.now() - 1000,
+  )
+  session.setOauthTransport({
+    async getJson() {
+      return { status: 200, json: { token_endpoint: 'https://auth.x.ai/oauth2/token' } }
+    },
+    async postForm() {
+      return { status: 403, json: { error: 'access_denied', error_description: 'no subscription' } }
+    },
+  })
+  assert.equal(await session.subscriptionAccessToken(), null)
+  const refused = database.prepare('SELECT refresh_token, last_error FROM oauth WHERE id = 1').get() as {
+    refresh_token: string
+    last_error: string
+  }
+  assert.equal(refused.refresh_token, 'refresh-next')
+  assert.match(refused.last_error, /refused/)
+  session.setOauthTransport({
+    async getJson() {
+      return {
+        status: 200,
+        json: {
+          token_endpoint: 'https://evil.example/token',
+          device_authorization_endpoint: 'https://auth.x.ai/oauth2/device/code',
+        },
+      }
+    },
+    async postForm() {
+      throw new Error('should not post')
+    },
+  })
+  const bad = await session.beginSignIn()
+  assert.equal(bad.ok, false)
+  assert.equal((await session.oauthPublic()).connected, true)
+  assert.equal(await session.disconnectGrok(), 'Signed out of Grok. Classification uses the API key when one is set.')
+  account = await session.oauthPublic()
+  assert.equal(account.connected, false)
+  assert.equal(account.pending, false)
+  const cleared = database.prepare('SELECT access_token, refresh_token, device_code FROM oauth WHERE id = 1').get() as {
+    access_token: string
+    refresh_token: string
+    device_code: string
+  }
+  assert.equal(cleared.access_token, '')
+  assert.equal(cleared.refresh_token, '')
+  assert.equal(cleared.device_code, '')
+
+  database.prepare(
+    `UPDATE oauth SET access_token = ?, refresh_token = ?, expires_at = ?, token_endpoint = ?,
+      refresh_failed_at = 0, last_error = '', device_code = '' WHERE id = 1`,
+  ).run(
+    fakeJwt(Math.floor(Date.now() / 1000) - 30),
+    'refresh-live',
+    Date.now() - 1000,
+    'https://auth.x.ai/oauth2/token',
+  )
+  let releaseRefresh = () => {}
+  const refreshHold = new Promise<void>((resolve) => { releaseRefresh = resolve })
+  let markRefresh = () => {}
+  const refreshHit = new Promise<void>((resolve) => { markRefresh = resolve })
+  session.setOauthTransport({
+    async getJson() {
+      return {
+        status: 200,
+        json: {
+          token_endpoint: 'https://auth.x.ai/oauth2/token',
+          device_authorization_endpoint: 'https://auth.x.ai/oauth2/device/code',
+        },
+      }
+    },
+    async postForm(_url, body) {
+      if (body.get('grant_type') !== 'refresh_token') throw new Error('unexpected post')
+      markRefresh()
+      await refreshHold
+      return {
+        status: 200,
+        json: {
+          access_token: fakeJwt(Math.floor(Date.now() / 1000) + 7200),
+          refresh_token: 'resurrected',
+          expires_in: 7200,
+        },
+      }
+    },
+  })
+  const pendingToken = session.subscriptionAccessToken()
+  await refreshHit
+  assert.equal(await session.disconnectGrok(), 'Signed out of Grok. Classification uses the API key when one is set.')
+  releaseRefresh()
+  assert.equal(await pendingToken, null)
+  const buried = database.prepare('SELECT access_token, refresh_token FROM oauth WHERE id = 1').get() as {
+    access_token: string
+    refresh_token: string
+  }
+  assert.equal(buried.access_token, '')
+  assert.equal(buried.refresh_token, '')
+
+  let releasePoll = () => {}
+  const pollHold = new Promise<void>((resolve) => { releasePoll = resolve })
+  let markPoll = () => {}
+  const pollHit = new Promise<void>((resolve) => { markPoll = resolve })
+  session.setOauthTransport({
+    async getJson() {
+      return {
+        status: 200,
+        json: {
+          token_endpoint: 'https://auth.x.ai/oauth2/token',
+          device_authorization_endpoint: 'https://auth.x.ai/oauth2/device/code',
+        },
+      }
+    },
+    async postForm(_url, body) {
+      if (body.get('scope')) {
+        return {
+          status: 200,
+          json: {
+            device_code: 'device-late',
+            user_code: 'WXYZ-1234',
+            verification_uri_complete: 'https://auth.x.ai/device?user_code=WXYZ-1234',
+            expires_in: 600,
+            interval: 5,
+          },
+        }
+      }
+      markPoll()
+      await pollHold
+      return {
+        status: 200,
+        json: {
+          access_token: fakeJwt(Math.floor(Date.now() / 1000) + 3600),
+          refresh_token: 'late-refresh',
+          expires_in: 3600,
+          id_token: fakeJwt(Math.floor(Date.now() / 1000) + 3600),
+        },
+      }
+    },
+  })
+  assert.equal((await session.beginSignIn()).ok, true)
+  const polling = session.pollPending()
+  await pollHit
+  assert.equal(await session.cancelSignIn(), 'Sign-in cancelled.')
+  releasePoll()
+  const cancelled = await polling
+  assert.equal(cancelled.connected, false)
+  assert.equal(cancelled.pending, false)
+  const late = database.prepare('SELECT refresh_token, device_code FROM oauth WHERE id = 1').get() as {
+    refresh_token: string
+    device_code: string
+  }
+  assert.equal(late.refresh_token, '')
+  assert.equal(late.device_code, '')
+
+  database.prepare(
+    `UPDATE oauth SET access_token = ?, refresh_token = ?, expires_at = ?, email = ?,
+      device_code = ?, user_code = ?, verification_uri = ?, poll_interval = ?,
+      device_expires_at = ?, token_endpoint = ?, refresh_failed_at = 0, last_error = ''
+     WHERE id = 1`,
+  ).run(
+    fakeJwt(Math.floor(Date.now() / 1000) - 30),
+    'refresh-400',
+    Date.now() - 1000,
+    'player@example.com',
+    'device-keep',
+    'KEEP-CODE',
+    'https://auth.x.ai/device',
+    30,
+    Date.now() + 600_000,
+    'https://auth.x.ai/oauth2/token',
+  )
+  session.setOauthTransport({
+    async getJson() {
+      return { status: 200, json: { token_endpoint: 'https://auth.x.ai/oauth2/token' } }
+    },
+    async postForm() {
+      return { status: 400, json: { error: 'invalid_grant' } }
+    },
+  })
+  assert.equal(await session.subscriptionAccessToken(), null)
+  const expiredRow = database.prepare(
+    'SELECT refresh_token, device_code, user_code, last_error FROM oauth WHERE id = 1',
+  ).get() as { refresh_token: string; device_code: string; user_code: string; last_error: string }
+  assert.equal(expiredRow.refresh_token, '')
+  assert.equal(expiredRow.device_code, 'device-keep')
+  assert.equal(expiredRow.user_code, 'KEEP-CODE')
+  assert.match(expiredRow.last_error, /expired/)
+
+  const { jobSnapshot } = await import('../lib/job')
+  const note = 'xAI refused the Grok subscription (HTTP 403). This call used the API key.'
+  await Promise.all([
+    session.noteSubscriptionFallback(note),
+    session.noteSubscriptionFallback(note),
+  ])
+  assert.equal(jobSnapshot().events.filter((event) => event.message === note).length, 1)
+  session.setOauthTransport(null)
 
   database.close()
   fs.rmSync(legacy, { recursive: true, force: true })

@@ -1951,6 +1951,14 @@ html.js .finish-fallback { display: none; }
     color: var(--ink);
 }
 
+.grok-code {
+    margin: 10px 0;
+    color: var(--ink);
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+}
+
 #refresh-log {
     max-height: 480px;
     overflow: auto;
