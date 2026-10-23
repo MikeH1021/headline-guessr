@@ -1,23 +1,33 @@
 import { BootScripts } from '@/components/boot-scripts'
 import { redirect } from 'next/navigation'
 import { rankForScore, rankLadder } from '@/lib/scoring'
-import { refreshResult, roundContext } from '@/lib/roundview'
+import { playableDay, presentResult, refreshResult, resultForDay, roundContext } from '@/lib/roundview'
 import { currentSession } from '@/lib/session'
-import { saveSession } from '@/lib/store'
+import { readArchive, saveSession } from '@/lib/store'
 import { isBanner } from '@/lib/text'
 
 export const metadata = { title: 'Results — Headline Guessr' }
 
-export default async function ResultsPage() {
+export default async function ResultsPage({ searchParams }: { searchParams: Promise<{ day?: string }> }) {
+  const params = await searchParams
+  const day = playableDay(params.day)
   const { id, data } = await currentSession()
-  const result = refreshResult(data)
-  if (!result || !data.correctAnswers.length) redirect('/game')
-  data.lastResult = result
+  const stored = day ? resultForDay(data, day) : data.lastResult
+  const result = day ? presentResult(stored) : (presentResult(stored, data.correctAnswers.length) || refreshResult(data))
+  const answers = result?.answers?.length ? result.answers : data.correctAnswers
+  const stories = result?.stories?.length ? result.stories : data.stories
+  if (!result || !answers.length) redirect(day ? `/game?day=${day}` : '/game')
+  if (day) data.plays = { ...(data.plays || {}), [day]: result }
+  else {
+    data.lastResult = result
+    if (result.roundDay) data.plays = { ...(data.plays || {}), [result.roundDay]: result }
+  }
   saveSession(id, data)
-  const total = data.correctAnswers.length
+  const total = answers.length
   const tier = rankForScore(result.score, total)
   const ladder = rankLadder()
-  const round = roundContext()
+  const round = day ? roundContext(readArchive(day)) : roundContext()
+  const again = day ? `/game?day=${day}` : '/game'
   const perfect = result.score === total && total > 0
   return (
     <div className="frame">
@@ -28,7 +38,7 @@ export default async function ResultsPage() {
       </header>
       <main id="main">
         <div className="score-block">
-          <p className="kicker">Today’s round</p>
+          <p className="kicker">{day ? 'Earlier round' : 'Today’s round'}</p>
           <p className="score">
             <span className="score-num" data-score={result.score}>{result.score}</span>
             <span className="score-of">/{total}</span>
@@ -40,7 +50,7 @@ export default async function ResultsPage() {
               {result.userAnswers.map((guess, index) => (
                 <span
                   key={index}
-                  className={`share-tile ${data.correctAnswers[index] === guess ? 'is-right' : 'is-wrong'}`}
+                  className={`share-tile ${answers[index] === guess ? 'is-right' : 'is-wrong'}`}
                   style={{ animationDelay: `${index * 70}ms` }}
                 />
               ))}
@@ -89,8 +99,8 @@ export default async function ResultsPage() {
         )}
         <ul className="reviews">
           {result.userAnswers.map((guess, index) => {
-            const answer = data.correctAnswers[index] || ''
-            const story = data.stories[index]
+            const answer = answers[index] || ''
+            const story = stories[index]
             const right = guess === answer
             return (
               <li key={index} className={`review ${right ? 'is-right' : 'is-wrong'}`} style={{ animationDelay: `${index * 50}ms` }}>
@@ -114,7 +124,7 @@ export default async function ResultsPage() {
           })}
         </ul>
         <div className="actions">
-          <a className="play-btn" href="/game">Play again</a>
+          <a className="play-btn" href={again}>Play again</a>
           <a className="btn btn-ghost" href="/">Home</a>
         </div>
         <div className="daily-foot">

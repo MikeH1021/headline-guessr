@@ -5,7 +5,8 @@ import { dealQueue } from './deal'
 import { canonicalEthnicity } from './ethnicity'
 import { defaultFeeds, feedName, feedUrl, parseFeeds, publicFeedUrl, validRefreshTime, type Feed } from './feeds'
 import { percentileRank } from './scoring'
-import { cleanTitle } from './text'
+import { markSeen } from './seen'
+import { cleanTitle, headlineKey } from './text'
 import { localISO } from './time'
 import type { LastResult, QueueCard, RoundCard, SessionData } from './types'
 
@@ -106,22 +107,75 @@ export function readRound(): StoredRound | null {
   return { refreshedOn: row.refreshed_on, refreshedAt: row.refreshed_at, cards }
 }
 
-export function saveRound(cards: RoundCard[], when = new Date()) {
-  const payload = JSON.stringify(cards.map((card) => ({
+function cardPayload(cards: RoundCard[]) {
+  return JSON.stringify(cards.map((card) => ({
     source: card.source,
     headline: card.headline,
     ethnicity: card.ethnicity,
   })))
+}
+
+function writeArchive(day: string, at: string, payload: string) {
+  db().prepare(
+    `INSERT INTO archives (refreshed_on, refreshed_at, cards_json) VALUES (?, ?, ?)
+     ON CONFLICT(refreshed_on) DO UPDATE SET refreshed_at = excluded.refreshed_at, cards_json = excluded.cards_json`,
+  ).run(day, at, payload)
+}
+
+function cardsFrom(payload: string): RoundCard[] {
+  try {
+    const parsed = JSON.parse(payload) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((item): item is RoundCard => {
+      if (!item || typeof item !== 'object') return false
+      const card = item as RoundCard
+      return Boolean(card.source && card.headline && card.ethnicity)
+    })
+  } catch {
+    return []
+  }
+}
+
+export function saveRound(cards: RoundCard[], when = new Date()) {
+  const payload = cardPayload(cards)
   const refreshedOn = localISO(when)
   const refreshedAt = `${refreshedOn} ${[when.getHours(), when.getMinutes(), when.getSeconds()].map((part) => String(part).padStart(2, '0')).join(':')}`
   db().prepare(
     `INSERT INTO rounds (id, refreshed_on, refreshed_at, cards_json) VALUES (1, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET refreshed_on = excluded.refreshed_on, refreshed_at = excluded.refreshed_at, cards_json = excluded.cards_json`,
   ).run(refreshedOn, refreshedAt, payload)
+  writeArchive(refreshedOn, refreshedAt, payload)
 }
 
-function queueKey(headline: string) {
-  return headline.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 240)
+function replaceCurrentCards(cards: RoundCard[]) {
+  const payload = cardPayload(cards)
+  const existing = readRound()
+  if (!existing) {
+    saveRound(cards)
+    return
+  }
+  db().prepare('UPDATE rounds SET cards_json = ? WHERE id = 1').run(payload)
+  writeArchive(existing.refreshedOn, existing.refreshedAt, payload)
+}
+
+export function readArchive(day: string): StoredRound | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null
+  const row = db().prepare(
+    'SELECT refreshed_on, refreshed_at, cards_json FROM archives WHERE refreshed_on = ?',
+  ).get(day) as { refreshed_on: string; refreshed_at: string; cards_json: string } | undefined
+  if (!row) return null
+  return { refreshedOn: row.refreshed_on, refreshedAt: row.refreshed_at, cards: cardsFrom(row.cards_json) }
+}
+
+export function listArchives() {
+  const rows = db().prepare(
+    'SELECT refreshed_on, refreshed_at, cards_json FROM archives ORDER BY refreshed_on DESC LIMIT 60',
+  ).all() as { refreshed_on: string; refreshed_at: string; cards_json: string }[]
+  return rows.map((row) => ({
+    refreshedOn: row.refreshed_on,
+    refreshedAt: row.refreshed_at,
+    count: cardsFrom(row.cards_json).length,
+  })).filter((row) => row.count > 0)
 }
 
 export function readQueue(): QueueCard[] {
@@ -134,7 +188,7 @@ export function readQueue(): QueueCard[] {
     const source = feedName(row.source)
     const headline = cleanTitle(row.headline)
     const ethnicity = canonicalEthnicity(row.ethnicity)
-    const key = queueKey(headline)
+    const key = headlineKey(headline)
     if (!source || !headline || !ethnicity || !key || seen.has(key)) continue
     seen.add(key)
     clean.push({ source, headline, ethnicity, url: row.url || '' })
@@ -158,17 +212,17 @@ export function queuePublic(rows: QueueCard[]) {
     source: item.source,
     headline: item.headline,
     ethnicity: item.ethnicity,
-    key: queueKey(item.headline),
+    key: headlineKey(item.headline),
   }))
 }
 
 export function appendQueue(card: { source: string; headline: string; ethnicity: string; url?: string }) {
-  const key = queueKey(card.headline)
+  const key = headlineKey(card.headline)
   const ethnicity = canonicalEthnicity(card.ethnicity)
   if (!key || !ethnicity) return { length: readQueue().length, added: false }
   return db().transaction(() => {
     const queue = readQueue()
-    if (queue.some((item) => queueKey(item.headline) === key)) return { length: queue.length, added: false }
+    if (queue.some((item) => headlineKey(item.headline) === key)) return { length: queue.length, added: false }
     queue.push({
       source: card.source,
       headline: card.headline,
@@ -190,15 +244,91 @@ export function takeRound() {
   })()
 }
 
+function busy(running: boolean) {
+  return running ? 'A refresh is running. The queue can be edited when it finishes.' : ''
+}
+
 export function dropQueued(key: string, running: boolean) {
-  if (running) return 'A refresh is running. The queue can be edited when it finishes.'
+  const blocked = busy(running)
+  if (blocked) return blocked
   const wanted = (key || '').trim().toLowerCase()
   return db().transaction(() => {
     const queue = readQueue()
-    const kept = queue.filter((item) => queueKey(item.headline) !== wanted)
+    const kept = queue.filter((item) => headlineKey(item.headline) !== wanted)
     if (kept.length === queue.length) return 'That article is not in the queue.'
     replaceQueue(kept)
     return 'Removed from the queue.'
+  })()
+}
+
+export function dropRoundCard(key: string, running: boolean) {
+  const blocked = busy(running)
+  if (blocked) return blocked
+  const wanted = (key || '').trim().toLowerCase()
+  return db().transaction(() => {
+    const round = readRound()
+    if (!round) return 'There is no round to edit.'
+    const kept = round.cards.filter((card) => headlineKey(card.headline) !== wanted)
+    if (kept.length === round.cards.length) return 'That headline is not in today’s round.'
+    replaceCurrentCards(kept)
+    return 'Removed from today’s round.'
+  })()
+}
+
+export function useQueued(key: string, running: boolean) {
+  const blocked = busy(running)
+  if (blocked) return blocked
+  const wanted = (key || '').trim().toLowerCase()
+  return db().transaction(() => {
+    const queue = readQueue()
+    const item = queue.find((card) => headlineKey(card.headline) === wanted)
+    if (!item) return 'That article is not in the queue.'
+    const round = readRound()
+    if (!round) return 'There is no round yet. Add the headline to the queue instead.'
+    const cards = round.cards
+    if (cards.some((card) => headlineKey(card.headline) === wanted)) return 'That headline is already in today’s round.'
+    if (cards.length >= ROUND_SIZE) return `Today’s round already has ${ROUND_SIZE} headlines.`
+    replaceCurrentCards([...cards, { source: item.source, headline: item.headline, ethnicity: item.ethnicity }])
+    replaceQueue(queue.filter((card) => headlineKey(card.headline) !== wanted))
+    markSeen(item.headline, item.url, 'round')
+    return 'Moved into today’s round.'
+  })()
+}
+
+export function addHeadline(
+  target: 'queue' | 'round',
+  fields: { source: string; headline: string; ethnicity: string; url: string },
+  running: boolean,
+) {
+  const blocked = busy(running)
+  if (blocked) return blocked
+  const source = feedName(fields.source)
+  const headline = cleanTitle(fields.headline)
+  const ethnicity = canonicalEthnicity(fields.ethnicity)
+  const url = fields.url.trim() ? feedUrl(fields.url) : ''
+  if (!source) return 'Enter a source name.'
+  if (!headline) return 'Enter a headline.'
+  if (!ethnicity) return 'Choose an ethnicity.'
+  if (fields.url.trim() && !url) return 'That URL needs to start with http:// or https://.'
+  const key = headlineKey(headline)
+  return db().transaction(() => {
+    if (target === 'queue') {
+      const queue = readQueue()
+      if (queue.some((item) => headlineKey(item.headline) === key)) return 'That headline is already in the queue.'
+      queue.push({ source, headline, ethnicity, url })
+      const capped = queue.length > QUEUE_CAP ? queue.slice(-QUEUE_CAP) : queue
+      replaceQueue(capped)
+      markSeen(headline, url, 'queued')
+      return `Added to the queue. ${capped.length} waiting.`
+    }
+    const round = readRound()
+    if (!round) return 'There is no round yet. Add the headline to the queue instead.'
+    const cards = round.cards
+    if (cards.some((card) => headlineKey(card.headline) === key)) return 'That headline is already in today’s round.'
+    if (cards.length >= ROUND_SIZE) return `Today’s round already has ${ROUND_SIZE} headlines.`
+    replaceCurrentCards([...cards, { source, headline, ethnicity }])
+    markSeen(headline, url, 'round')
+    return 'Added to today’s round.'
   })()
 }
 
@@ -220,8 +350,10 @@ export function roundStats(key: string, score: number, total: number): RoundStat
   return { percentile: percentileRank(score, sample, total), plays: sample.length, counts }
 }
 
-export function recordPercentile(score: number, total: number, sessionId: string) {
-  const key = roundKey(total)
+export function recordPercentile(score: number, total: number, sessionId: string, day = '') {
+  const archived = /^\d{4}-\d{2}-\d{2}$/.test(day) ? readArchive(day) : null
+  const stamp = archived?.refreshedOn || readRound()?.refreshedOn || localISO()
+  const key = `${stamp}:${Math.trunc(total)}`
   const value = Math.max(0, Math.min(Math.trunc(score), Math.trunc(total)))
   const who = (sessionId || '').slice(0, 80)
   const database = db()
@@ -248,11 +380,25 @@ export function recordPercentile(score: number, total: number, sessionId: string
   return { ...roundStats(key, value, total), roundKey: key, score: value }
 }
 
+function readPlays(value: unknown) {
+  const plays: Record<string, LastResult> = {}
+  if (!value || typeof value !== 'object') return plays
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !item || typeof item !== 'object') continue
+    const row = item as LastResult
+    if (!Array.isArray(row.userAnswers) || typeof row.score !== 'number' || typeof row.roundKey !== 'string') continue
+    plays[key] = row
+  }
+  return plays
+}
+
 const emptySession = (): SessionData => ({
   userId: String(1000 + Math.floor(Math.random() * 9000)),
   stories: [],
   correctAnswers: [],
   lastResult: null,
+  playDay: '',
+  plays: {},
 })
 
 export function loadSession(id: string): SessionData | null {
@@ -269,6 +415,8 @@ export function loadSession(id: string): SessionData | null {
       stories: Array.isArray(parsed.stories) ? parsed.stories : [],
       correctAnswers: Array.isArray(parsed.correctAnswers) ? parsed.correctAnswers : [],
       lastResult: parsed.lastResult && typeof parsed.lastResult === 'object' ? parsed.lastResult as LastResult : null,
+      playDay: typeof parsed.playDay === 'string' ? parsed.playDay : '',
+      plays: readPlays(parsed.plays),
     }
   } catch {
     return null

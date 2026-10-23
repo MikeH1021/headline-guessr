@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import { BootScripts } from '@/components/boot-scripts'
 import { adminAuthed } from '@/lib/admin-auth'
-import { GROK_MODELS } from '@/lib/constants'
+import { ETHNICITIES, GROK_MODELS } from '@/lib/constants'
 import { rumPublic, rumSummary } from '@/lib/rum'
-import { currentFeeds, currentModel, currentPrompt, currentRefreshTime, queuePublic, readQueue } from '@/lib/store'
+import { currentFeeds, currentModel, currentPrompt, currentRefreshTime, queuePublic, readQueue, readRound } from '@/lib/store'
+import { headlineKey } from '@/lib/text'
 
 export const metadata = { title: 'Admin — Headline Guessr' }
 
@@ -73,6 +74,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const notice = (params.notice || '').slice(0, 300)
   const feeds = currentFeeds()
   const queue = queuePublic(readQueue())
+  const round = readRound()
+  const roundCards = round?.cards || []
   const model = currentModel()
   const prompt = currentPrompt()
   const refreshTime = currentRefreshTime()
@@ -91,71 +94,122 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </header>
       <main id="main">
         <h1>Admin</h1>
-        <p>Choose the Grok model, and edit the prompt it uses when it reads an article and records the perpetrator’s ethnicity. The headline and the article copy are both sent. Grok can search the web when the article does not state an ethnicity. The answer is kept only when a news report states it.</p>
-        <p>The daily round is 10 headlines. Every refresh reads each feed below, 16 headlines from each one. Confirmed articles wait in the queue. The round takes one source at a time, so the same outlet does not fill the row.</p>
+        <p>The daily round is 10 headlines. Confirmed articles wait in the queue, and the round takes one source at a time.</p>
         {notice && <p className="message">{notice}</p>}
-        <RumStats rum={rum} />
-        <h2>Feeds</h2>
-        <p>Add or remove a crime RSS feed. The next refresh reads the whole list. Grok still keeps an ethnicity only when a news report states one.</p>
-        <ul className="feed-list">
-          {feeds.map((feed) => (
-            <li key={feed.url}>
-              <form method="post" action="/admin/post" {...formQuiet}>
-                <span className="feed-name">{feed.name}</span>
-                <span className="feed-url">{feed.url}</span>
-                <input type="hidden" name="feed_url" value={feed.url} />
-                <button className="btn btn-ghost" type="submit" name="action" value="remove_feed">Remove</button>
-              </form>
-            </li>
-          ))}
-        </ul>
-        <form className="feed-add" method="post" action="/admin/post" {...formQuiet}>
-          <label>Name<input type="text" name="feed_name" maxLength={40} placeholder="Washington Post" required /></label>
-          <label>RSS URL<input type="url" name="feed_url" maxLength={300} placeholder="https://example.com/crime/feed" required /></label>
-          <button className="btn" type="submit" name="action" value="add_feed">Add feed</button>
-        </form>
-        <h2>Queue</h2>
-        <p>Confirmed articles waiting for a round, with the outlet they came from. Anything not dealt today stays for the next one.</p>
-        <p className="note" id="queue-empty" hidden={queue.length > 0}>The queue is empty. A refresh adds confirmed articles here, then deals the round from them.</p>
-        <ul className="queue-list" id="queue-list" data-signature={signature}>
-          {queue.map((item) => (
-            <li key={item.key}>
-              <form method="post" action="/admin/post" {...formQuiet}>
-                <span className="feed-name">{item.source}</span>
-                <span className="feed-url">{item.headline} — {item.ethnicity}</span>
-                <input type="hidden" name="queue_key" value={item.key} />
-                <button className="btn btn-ghost" type="submit" name="action" value="drop_queue">Remove</button>
-              </form>
-            </li>
-          ))}
-        </ul>
-        <form method="post" action="/admin/post" {...formQuiet}>
-          <label htmlFor="model">Screening model</label>
-          <select id="model" name="model" defaultValue={model}>
-            {GROK_MODELS.map((item) => (
-              <option key={item.id} value={item.id}>{item.id}</option>
+        <details className="drawer" open>
+          <summary>Today’s round</summary>
+          <p>{round ? `${roundCards.length} headlines saved ${round.refreshedAt}.` : 'No round is saved yet.'} Remove one, or move a queued headline in, without running a refresh.</p>
+          <p className="note" hidden={roundCards.length > 0}>Today’s round is empty.</p>
+          <ul className="queue-list">
+            {roundCards.map((card) => (
+              <li key={headlineKey(card.headline)}>
+                <form method="post" action="/admin/post" {...formQuiet}>
+                  <span className="feed-name">{card.source}</span>
+                  <span className="feed-url">{card.headline} — {card.ethnicity}</span>
+                  <input type="hidden" name="queue_key" value={headlineKey(card.headline)} />
+                  <button className="btn btn-ghost" type="submit" name="action" value="drop_round">Remove</button>
+                </form>
+              </li>
             ))}
-          </select>
-          {GROK_MODELS.map((item) => (
-            <p key={item.id} className="note" hidden={item.id !== model} data-note={item.id}>{item.note}</p>
-          ))}
-          <label htmlFor="refresh-time">Daily refresh time</label>
-          <input id="refresh-time" type="time" name="refresh_time" defaultValue={refreshTime} required />
-          <p className="note">Local time on this computer. After this time, the app classifies today’s round once.</p>
-          <label htmlFor="prompt">Ethnicity prompt</label>
-          <textarea id="prompt" name="prompt" defaultValue={prompt.replace(/\r\n/g, '\n').replace(/\r/g, '\n')} suppressHydrationWarning data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" />
-          <button className="btn" type="submit" name="action" value="save">Save</button>
-          <button className="btn btn-ghost" type="submit" name="action" value="reset">Restore default prompt</button>
-        </form>
-        <h2>Debug refresh</h2>
-        <p>Check the box and run a refresh now. Every feed is fetched. The log shows each feed, each candidate, and Grok’s reasoning. When it says done, the round is dealt from the queue and you can play.</p>
-        <form method="post" action="/admin/post" {...formQuiet}>
-          <label className="check"><input type="checkbox" name="debug_refresh" value="1" id="debug-refresh" /> Debug refresh</label>
-          <button className="btn" type="submit" name="action" value="refresh" id="refresh-btn" disabled>Run debug refresh</button>
-        </form>
-        <p id="refresh-state" className="note"></p>
-        <div id="refresh-log"></div>
-        <ul id="ready-list" className="ready-list"></ul>
+          </ul>
+        </details>
+        <details className="drawer" open>
+          <summary>Queue</summary>
+          <p>Confirmed articles waiting for a round. Add one here when you already know the stated ethnicity. Anything not dealt today stays for the next one.</p>
+          <p className="note" id="queue-empty" hidden={queue.length > 0}>The queue is empty.</p>
+          <ul className="queue-list" id="queue-list" data-signature={signature}>
+            {queue.map((item) => (
+              <li key={item.key}>
+                <form method="post" action="/admin/post" {...formQuiet}>
+                  <span className="feed-name">{item.source}</span>
+                  <span className="feed-url">{item.headline} — {item.ethnicity}</span>
+                  <input type="hidden" name="queue_key" value={item.key} />
+                  <button className="btn btn-ghost" type="submit" name="action" value="use_queue">Use today</button>
+                  <button className="btn btn-ghost" type="submit" name="action" value="drop_queue">Remove</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+          <form className="feed-add headline-add" method="post" action="/admin/post" {...formQuiet}>
+            <label>Source<input type="text" name="source" maxLength={40} placeholder="Boston Herald" required /></label>
+            <label>Headline<input type="text" name="headline" maxLength={240} placeholder="Man arrested after the robbery" required /></label>
+            <label>Ethnicity
+              <select name="ethnicity" defaultValue="" required>
+                <option value="" disabled>Choose</option>
+                {ETHNICITIES.map((label) => <option key={label} value={label}>{label}</option>)}
+              </select>
+            </label>
+            <label>URL<input type="url" name="url" maxLength={300} placeholder="https://example.com/story" /></label>
+            <div className="split-actions">
+              <button className="btn" type="submit" name="action" value="add_queue">Add to queue</button>
+              <button className="btn btn-ghost" type="submit" name="action" value="add_round">Add to today’s round</button>
+            </div>
+          </form>
+        </details>
+        <details className="drawer">
+          <summary>Feeds</summary>
+          <p>Add or remove a crime RSS feed. The next refresh reads the whole list.</p>
+          <ul className="feed-list">
+            {feeds.map((feed) => (
+              <li key={feed.url}>
+                <form method="post" action="/admin/post" {...formQuiet}>
+                  <span className="feed-name">{feed.name}</span>
+                  <span className="feed-url">{feed.url}</span>
+                  <input type="hidden" name="feed_url" value={feed.url} />
+                  <button className="btn btn-ghost" type="submit" name="action" value="remove_feed">Remove</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+          <form className="feed-add" method="post" action="/admin/post" {...formQuiet}>
+            <label>Name<input type="text" name="feed_name" maxLength={40} placeholder="Washington Post" required /></label>
+            <label>RSS URL<input type="url" name="feed_url" maxLength={300} placeholder="https://example.com/crime/feed" required /></label>
+            <button className="btn" type="submit" name="action" value="add_feed">Add feed</button>
+          </form>
+        </details>
+        <details className="drawer">
+          <summary>Model and prompt</summary>
+          <p>Grok reads the headline and the article. It can search the web. The answer is kept only when a news report states an ethnicity.</p>
+          <form method="post" action="/admin/post" {...formQuiet}>
+            <label htmlFor="model">Screening model</label>
+            <select id="model" name="model" defaultValue={model}>
+              {GROK_MODELS.map((item) => (
+                <option key={item.id} value={item.id}>{item.id}</option>
+              ))}
+            </select>
+            {GROK_MODELS.map((item) => (
+              <p key={item.id} className="note" hidden={item.id !== model} data-note={item.id}>{item.note}</p>
+            ))}
+            <label htmlFor="refresh-time">Daily refresh time</label>
+            <input id="refresh-time" type="time" name="refresh_time" defaultValue={refreshTime} required />
+            <p className="note">Local time on this computer. After this time, the app classifies today’s round once.</p>
+            <label htmlFor="prompt">Ethnicity prompt</label>
+            <textarea id="prompt" name="prompt" defaultValue={prompt.replace(/\r\n/g, '\n').replace(/\r/g, '\n')} suppressHydrationWarning data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" />
+            <div className="split-actions">
+              <button className="btn" type="submit" name="action" value="save">Save</button>
+              <button className="btn btn-ghost" type="submit" name="action" value="reset">Restore default prompt</button>
+            </div>
+          </form>
+        </details>
+        <details className="drawer">
+          <summary>Stats</summary>
+          <RumStats rum={rum} />
+        </details>
+        <details className="drawer" open>
+          <summary>Refresh</summary>
+          <p>Queue new headlines only sends RSS entries that have not already been checked. A checked headline, one already in the queue, and one already in a round are skipped, so Grok is not called for them again.</p>
+          <form method="post" action="/admin/post" {...formQuiet}>
+            <button className="btn" type="submit" name="action" value="queue_more">Queue new headlines</button>
+          </form>
+          <p>Debug refresh does the same skip, then deals today’s round from the queue. That replaces the round people are playing.</p>
+          <form method="post" action="/admin/post" {...formQuiet}>
+            <label className="check"><input type="checkbox" name="debug_refresh" value="1" id="debug-refresh" /> Debug refresh</label>
+            <button className="btn" type="submit" name="action" value="refresh" id="refresh-btn" disabled>Run debug refresh</button>
+          </form>
+          <p id="refresh-state" className="note"></p>
+          <div id="refresh-log"></div>
+          <ul id="ready-list" className="ready-list"></ul>
+        </details>
         <BootScripts src="/admin.js" />
       </main>
     </div>

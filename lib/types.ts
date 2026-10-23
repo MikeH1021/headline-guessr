@@ -9,7 +9,10 @@ export type LastResult = {
   plays: number
   counts: number[]
   userAnswers: string[]
+  answers?: string[]
+  stories?: { source: string; headline: string }[]
   roundKey: string
+  roundDay?: string
 }
 
 export type SessionData = {
@@ -17,6 +20,8 @@ export type SessionData = {
   stories: { source: string; headline: string }[]
   correctAnswers: string[]
   lastResult: LastResult | null
+  playDay?: string
+  plays?: Record<string, LastResult>
 }
 
 export type RumSummary = {

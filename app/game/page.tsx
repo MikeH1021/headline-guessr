@@ -1,26 +1,30 @@
 import { BootScripts } from '@/components/boot-scripts'
 import { ETHNICITIES } from '@/lib/constants'
 import { HeadlineError } from '@/lib/errors'
-import { buildRound, roundContext } from '@/lib/roundview'
+import { buildRound, playableDay, roundContext } from '@/lib/roundview'
 import { currentSession } from '@/lib/session'
-import { saveSession } from '@/lib/store'
+import { readArchive, readRound, saveSession } from '@/lib/store'
 import { isBanner } from '@/lib/text'
 
 export const metadata = { title: 'Play — Headline Guessr' }
 
-export default async function GamePage() {
+export default async function GamePage({ searchParams }: { searchParams: Promise<{ day?: string }> }) {
+  const params = await searchParams
+  const day = playableDay(params.day)
   const { id, data } = await currentSession()
-  const round = roundContext()
+  const saved = day ? readArchive(day) : readRound()
+  const round = roundContext(saved)
   let error = ''
   let cards: { source: string; headline: string; answer: string }[] = []
   try {
-    const dealt = buildRound()
+    const dealt = buildRound(day)
     data.stories = dealt.map((card) => ({ source: card.source, headline: card.headline }))
     data.correctAnswers = dealt.map((card) => card.ethnicity)
+    data.playDay = saved?.refreshedOn || day
     saveSession(id, data)
     cards = dealt.map((card) => ({ source: card.source, headline: card.headline, answer: card.ethnicity }))
   } catch (err) {
-    error = err instanceof HeadlineError ? err.message : 'The daily round is not ready. Set the refresh time on the admin page, or run a debug refresh.'
+    error = err instanceof HeadlineError ? err.message : 'Today’s round is not ready yet.'
   }
   return (
     <div className="frame play">
@@ -34,7 +38,6 @@ export default async function GamePage() {
           {error && (
             <div className="panel">
               <p>{error}</p>
-              <p><a href="/admin">Open admin</a></p>
             </div>
           )}
           {cards.length > 0 && (

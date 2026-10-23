@@ -153,6 +153,49 @@ function importLegacy(database: Database.Database) {
   console.log(`Headline Guessr imported the existing round (${cards} cards) and ${scoreCount.n} scores.`)
 }
 
+function seedSeen(database: Database.Database) {
+  const seeded = database.prepare('SELECT value FROM meta WHERE key = ?').get('seen_seeded') as
+    | { value: string }
+    | undefined
+  if (seeded?.value === '1') return
+  const insert = database.prepare('INSERT OR IGNORE INTO seen (key, status, checked_at) VALUES (?, ?, ?)')
+  const now = Date.now()
+  const mark = (headline: unknown, url: unknown, status: string) => {
+    const head = typeof headline === 'string'
+      ? headline.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 240)
+      : ''
+    if (head) insert.run(`h:${head}`, status, now)
+    if (typeof url !== 'string' || !/^https?:\/\/\S+$/.test(url.trim())) return
+    try {
+      const parsed = new URL(url.trim())
+      parsed.hash = ''
+      insert.run(`u:${parsed.hostname.toLowerCase()}${parsed.pathname.replace(/\/+$/, '')}${parsed.search}`, status, now)
+    } catch {
+      return
+    }
+  }
+  const queue = database.prepare('SELECT headline, url FROM queue').all() as { headline: string; url: string }[]
+  for (const row of queue) mark(row.headline, row.url, 'queued')
+  const blobs = [
+    ...database.prepare('SELECT cards_json FROM rounds').all() as { cards_json: string }[],
+    ...database.prepare('SELECT cards_json FROM archives').all() as { cards_json: string }[],
+  ]
+  for (const blob of blobs) {
+    try {
+      const cards = JSON.parse(blob.cards_json) as unknown
+      if (!Array.isArray(cards)) continue
+      for (const card of cards) {
+        if (!card || typeof card !== 'object') continue
+        const item = card as { headline?: unknown; url?: unknown }
+        mark(item.headline, item.url, 'round')
+      }
+    } catch {
+      continue
+    }
+  }
+  database.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('seen_seeded', '1')
+}
+
 function migrate(database: Database.Database) {
   database.exec(`
     CREATE TABLE IF NOT EXISTS meta (
@@ -226,7 +269,19 @@ function migrate(database: Database.Database) {
   if (!scoreColumns.some((column) => column.name === 'session_id')) {
     database.exec("ALTER TABLE scores ADD COLUMN session_id TEXT NOT NULL DEFAULT ''")
   }
-  database.exec('CREATE INDEX IF NOT EXISTS idx_scores_session ON scores(session_id, round_key)')
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_scores_session ON scores(session_id, round_key);
+    CREATE TABLE IF NOT EXISTS archives (
+      refreshed_on TEXT PRIMARY KEY,
+      refreshed_at TEXT NOT NULL,
+      cards_json TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS seen (
+      key TEXT PRIMARY KEY,
+      status TEXT NOT NULL,
+      checked_at INTEGER NOT NULL
+    );
+  `)
   const hasSettings = database.prepare('SELECT id FROM settings WHERE id = 1').get()
   if (!hasSettings) database.transaction(() => importLegacy(database))()
   const hasJob = database.prepare('SELECT id FROM job WHERE id = 1').get()
@@ -242,6 +297,16 @@ function migrate(database: Database.Database) {
       'INSERT INTO settings (id, model, prompt, refresh_time, feeds_json) VALUES (1, ?, ?, ?, NULL)',
     ).run('grok-4.7', DEFAULT_ETHNICITY_PROMPT, DEFAULT_REFRESH_TIME)
     database.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('json_imported', '1')
+  }
+  seedSeen(database)
+  const current = database.prepare(
+    'SELECT refreshed_on, refreshed_at, cards_json FROM rounds WHERE id = 1',
+  ).get() as { refreshed_on: string; refreshed_at: string; cards_json: string } | undefined
+  if (current?.refreshed_on) {
+    database.prepare(
+      `INSERT INTO archives (refreshed_on, refreshed_at, cards_json) VALUES (?, ?, ?)
+       ON CONFLICT(refreshed_on) DO NOTHING`,
+    ).run(current.refreshed_on, current.refreshed_at, current.cards_json)
   }
 }
 

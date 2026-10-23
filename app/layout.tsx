@@ -61,9 +61,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const headerList = await headers()
   const path = headerList.get('x-pathname') || '/'
   const round = roundContext()
+  const requested = headerList.get('x-round-day') || ''
+  const roundDay = /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : round.roundDay
   return (
     <html lang="en" className={`js ${sans.variable} ${serif.variable}`} suppressHydrationWarning>
-      <body className={bodyClass(path)} data-round-day={round.roundDay} suppressHydrationWarning>
+      <body className={bodyClass(path)} data-round-day={roundDay} suppressHydrationWarning>
         <a className="skip" href="#main">Skip to content</a>
         {children}
         <div className="sheet" id="stats-sheet" hidden>

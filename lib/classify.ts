@@ -4,6 +4,7 @@ import {
   ETHNICITY_SCHEMA,
   PER_FEED,
   PICK_SCHEMA,
+  QUEUE_CAP,
   ROUND_SIZE,
   SCREEN_BATCH,
 } from './constants'
@@ -13,6 +14,8 @@ import { canonicalEthnicity } from './ethnicity'
 import { grok } from './grok'
 import { jobLog, jobSet, jobSnapshot, markRefreshFinished, markRefreshStarted } from './job'
 import { storiesFrom, storyCopy, type GatheredStory } from './rss'
+import { hasSeen, markSeen } from './seen'
+import { headlineKey } from './text'
 import { appendQueue, currentFeeds, currentPrompt, currentRefreshTime, readQueue, readRound, saveRound, takeRound } from './store'
 import { localISO } from './time'
 
@@ -117,23 +120,26 @@ async function classifyOne(story: GatheredStory) {
   jobLog(`Article: ${story.source} — ${story.headline}`)
   const copy = await storyCopy(story)
   if (copy.length < 200) {
+    markSeen(story.headline, story.url, 'short')
     jobLog('Skipped. The article page did not include enough text.')
     return 'skip'
   }
   const answered = await assignEthnicities([{ source: story.source, headline: story.headline, copy }])
   if (!answered.length) {
+    markSeen(story.headline, story.url, 'unstated')
     jobLog('Not stated. Skipped.')
     return 'done'
   }
   const card = { ...answered[0], url: story.url || '' }
   const { length, added } = appendQueue(card)
+  markSeen(story.headline, story.url, 'queued')
   jobSet({ kept: length })
   if (added) jobLog(`Stated: ${card.ethnicity}. Queue has ${length}.`)
   else jobLog('Already in the queue.')
   return 'done'
 }
 
-async function classifySpread(picked: PickedStory[]) {
+async function classifySpread(picked: PickedStory[], stopAt: number) {
   const order: string[] = []
   const groups = new Map<string, PickedStory[]>()
   for (const story of picked) {
@@ -156,14 +162,16 @@ async function classifySpread(picked: PickedStory[]) {
         if (await classifyOne(story) !== 'skip') break
       }
     }
-    if (readQueue().length >= ROUND_SIZE) {
-      jobLog(`The queue can fill a round of ${ROUND_SIZE}. Later sources in this pass were included.`)
+    if (readQueue().length >= stopAt) {
+      jobLog(stopAt >= QUEUE_CAP
+        ? `The queue is full at ${QUEUE_CAP}.`
+        : `The queue can fill a round of ${ROUND_SIZE}. Later sources in this pass were included.`)
       break
     }
   }
 }
 
-async function classifyDaily() {
+async function classifyDaily(deal: boolean) {
   if (!(process.env.XAI_API_KEY || '').trim()) {
     throw new HeadlineError('Add your xAI API key as XAI_API_KEY in a .env file in this folder, then restart the app.')
   }
@@ -182,40 +190,68 @@ async function classifyDaily() {
     return [...found]
   })
   const stories = interleave(groups, Math.max(1, feeds.length) * PER_FEED)
-  jobLog(`Collected ${stories.length} headlines from ${feeds.length} feeds. Screening for distinct crimes.`)
+  const held = new Set<string>()
+  for (const card of [...readQueue(), ...(readRound()?.cards || [])]) {
+    const key = headlineKey(card.headline)
+    if (key) held.add(key)
+  }
+  const fresh = stories.filter((story) => {
+    const key = headlineKey(story.headline)
+    if (key && held.has(key)) {
+      markSeen(story.headline, story.url, 'queued')
+      return false
+    }
+    return !hasSeen(story.headline, story.url)
+  })
+  const checked = stories.length - fresh.length
+  jobLog(`Collected ${stories.length} headlines from ${feeds.length} feeds. ${checked} already checked. ${fresh.length} new.`)
   const picked: PickedStory[] = []
   const prior: string[] = []
-  for (let start = 0; start < stories.length; start += SCREEN_BATCH) {
-    const batch = stories.slice(start, start + SCREEN_BATCH)
-    jobLog(`Screening headlines ${start + 1}–${start + batch.length}.`)
-    const chosen = await screenStories(batch, prior, batch.length)
-    if (!chosen.length) {
-      jobLog('No new crimes in this batch.')
-      continue
-    }
-    for (const story of chosen) {
-      prior.push(story.event.toLowerCase())
-      picked.push(story)
-      jobLog(`Candidate: ${story.source} — ${story.headline}`)
+  if (!fresh.length) {
+    jobLog('No new headlines. Grok was not called.')
+  } else {
+    jobLog('Screening the new headlines for distinct crimes.')
+    for (let start = 0; start < fresh.length; start += SCREEN_BATCH) {
+      const batch = fresh.slice(start, start + SCREEN_BATCH)
+      jobLog(`Screening headlines ${start + 1}–${start + batch.length}.`)
+      const chosen = await screenStories(batch, prior, batch.length)
+      const chosenKeys = new Set(chosen.map((story) => headlineKey(story.headline)))
+      for (const story of batch) {
+        if (!chosenKeys.has(headlineKey(story.headline))) markSeen(story.headline, story.url, 'screened')
+      }
+      if (!chosen.length) {
+        jobLog('No new crimes in this batch.')
+        continue
+      }
+      for (const story of chosen) {
+        prior.push(story.event.toLowerCase())
+        picked.push(story)
+        jobLog(`Candidate: ${story.source} — ${story.headline}`)
+      }
     }
   }
   if (picked.length) {
     jobLog(`Reading ${picked.length} candidates. Confirmed articles join the queue.`)
-    await classifySpread(picked)
-  } else {
+    await classifySpread(picked, deal ? ROUND_SIZE : QUEUE_CAP)
+  } else if (fresh.length) {
     jobLog('No new crimes to classify.')
+  }
+  if (!deal) {
+    jobLog(`Queue has ${readQueue().length}. Today’s round was left as it is.`)
+    return
   }
   const { dealt, rest } = takeRound()
   saveRound(dealt)
+  for (const card of dealt) markSeen(card.headline, card.url || '', 'round')
   jobSet({ kept: dealt.length })
   if (dealt.length) jobLog(`Round: ${dealt.map((card) => card.source).join(', ')}.`)
   jobLog(`Done. ${dealt.length} in the round. ${rest.length} left in the queue.`)
 }
 
-async function refreshWorker() {
+async function refreshWorker(deal: boolean) {
   let error = ''
   try {
-    await classifyDaily()
+    await classifyDaily(deal)
   } catch (err) {
     error = err instanceof HeadlineError ? err.message : 'The refresh failed.'
     if (error.includes('xai-')) error = 'The refresh failed.'
@@ -224,9 +260,9 @@ async function refreshWorker() {
   markRefreshFinished(error)
 }
 
-export function startRefresh() {
+export function startRefresh(mode: 'deal' | 'queue' = 'deal') {
   if (!markRefreshStarted()) return false
-  void refreshWorker()
+  void refreshWorker(mode === 'deal')
   return true
 }
 

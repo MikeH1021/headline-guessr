@@ -1,22 +1,24 @@
 import { currentSession } from '@/lib/session'
-import { saveSession } from '@/lib/store'
-import { roundContext, todayPlay } from '@/lib/roundview'
+import { listArchives, saveSession } from '@/lib/store'
+import { resultForDay, roundContext, todayPlay } from '@/lib/roundview'
+import { roundLabel } from '@/lib/time'
 
 export const metadata = { title: 'Headline Guessr' }
 
 export default async function HomePage() {
   const { id, data } = await currentSession()
-  const before = data.lastResult?.percentile
-  const played = todayPlay(data)
-  if (played && data.lastResult && data.lastResult.percentile !== before) saveSession(id, data)
   const round = roundContext()
+  const todaySaved = resultForDay(data, round.roundDay)
+  const before = todaySaved?.percentile
+  const played = todayPlay(data)
+  if (played && todaySaved && todaySaved.percentile !== before) saveSession(id, data)
+  const past = listArchives().filter((item) => item.refreshedOn !== round.roundDay)
   return (
     <div className="frame">
       <header className="topbar">
         <p className="dateline">{round.roundLabel || 'Daily'}</p>
         <div className="top-links">
           <button type="button" className="quiet stats-open" aria-haspopup="dialog">Stats</button>
-          <a className="quiet" href="/admin">Admin</a>
         </div>
       </header>
       <main className="home-main" id="main">
@@ -66,6 +68,27 @@ export default async function HomePage() {
             </>
           )}
         </div>
+        {past.length > 0 && (
+          <section className="archive" aria-labelledby="archive-title">
+            <p className="kicker" id="archive-title">Earlier rounds</p>
+            <ul className="archive-list">
+              {past.map((item) => {
+                const saved = resultForDay(data, item.refreshedOn)
+                const label = roundLabel(item.refreshedOn).label
+                return (
+                  <li key={item.refreshedOn}>
+                    <span>{label}</span>
+                    <span className="archive-links">
+                      {saved && <span>{saved.score}/{saved.answers?.length || item.count}</span>}
+                      <a href={`/game?day=${item.refreshedOn}`}>{saved ? 'Play again' : 'Play'}</a>
+                      {saved && <a href={`/results?day=${item.refreshedOn}`}>Result</a>}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
         <div className="earlier" id="earlier" hidden></div>
         <div className="daily-foot">
           <p className="meta">

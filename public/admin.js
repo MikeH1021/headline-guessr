@@ -81,6 +81,12 @@
             key.type = 'hidden';
             key.name = 'queue_key';
             key.value = item.key;
+            var use = document.createElement('button');
+            use.className = 'btn btn-ghost';
+            use.type = 'submit';
+            use.name = 'action';
+            use.value = 'use_queue';
+            use.textContent = 'Use today';
             var button = document.createElement('button');
             button.className = 'btn btn-ghost';
             button.type = 'submit';
@@ -90,6 +96,7 @@
             form.appendChild(name);
             form.appendChild(detail);
             form.appendChild(key);
+            form.appendChild(use);
             form.appendChild(button);
             row.appendChild(form);
             list.appendChild(row);

@@ -12,6 +12,8 @@ function randomId() {
 export function middleware(request: NextRequest) {
   const headers = new Headers(request.headers)
   headers.set('x-pathname', request.nextUrl.pathname)
+  const day = request.nextUrl.searchParams.get('day') || ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(day)) headers.set('x-round-day', day)
   const existing = request.cookies.get('hg')?.value || ''
   const id = existing || randomId()
   headers.set('x-session', id)

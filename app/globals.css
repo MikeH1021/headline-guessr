@@ -975,6 +975,34 @@ html.js .finish-fallback { display: none; }
 .page-home .pace { margin: -10px 0 16px; }
 
 .earlier { margin-top: 8px; }
+
+.archive { margin-top: 28px; }
+
+.archive-list {
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.archive-list li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+}
+
+.archive-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    align-items: baseline;
+    color: var(--ink-soft);
+}
+
+.archive-links a { font-weight: 700; }
 .earlier .kicker { margin-bottom: 8px; }
 
 .edition {
@@ -1309,6 +1337,53 @@ html.js .finish-fallback { display: none; }
     letter-spacing: -0.03em;
 }
 
+.drawer {
+    margin: 14px 0;
+    padding: 0 16px 12px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--paper-2);
+}
+
+.drawer summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 0;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.45rem;
+    letter-spacing: -0.03em;
+    cursor: pointer;
+    list-style: none;
+}
+
+.drawer summary::-webkit-details-marker { display: none; }
+
+.drawer summary::before {
+    content: "";
+    width: 0.45rem;
+    height: 0.45rem;
+    border-right: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+    transform: rotate(-45deg);
+}
+
+.drawer[open] summary::before { transform: rotate(45deg) translateY(-2px); }
+
+.drawer .rum { margin: 0 0 8px; padding: 0; border: 0; background: transparent; }
+
+.split-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.split-actions .btn { margin-top: 0; }
+
+
+
 .rum {
     margin: 8px 0 28px;
     padding: 16px 16px 18px;
@@ -1416,8 +1491,13 @@ html.js .finish-fallback { display: none; }
 
 .feed-add label { margin: 0; }
 
+.feed-add.headline-add { grid-template-columns: 1fr 1fr; }
+
+.feed-add.headline-add .split-actions { grid-column: 1 / -1; }
+
 @media (max-width: 640px) {
-    .feed-add { grid-template-columns: 1fr; }
+    .feed-add,
+    .feed-add.headline-add { grid-template-columns: 1fr; }
     .feed-list form,
     .queue-list form { flex-wrap: wrap; }
     .feed-url { flex: 1 0 100%; white-space: normal; }

@@ -25,7 +25,8 @@ export async function POST(request: Request) {
     return NextResponse.redirect(publicUrl(request, '/game'), 303)
   }
   const score = answers.reduce((sum, guess, index) => sum + (guess === correct[index] ? 1 : 0), 0)
-  const recorded = recordPercentile(score, correct.length, id)
+  const recorded = recordPercentile(score, correct.length, id, session.playDay || '')
+  const roundDay = recorded.roundKey.split(':')[0]
   session.lastResult = {
     score,
     percentile: recorded.percentile,
@@ -33,8 +34,12 @@ export async function POST(request: Request) {
     plays: recorded.plays,
     counts: recorded.counts,
     userAnswers: answers,
+    answers: correct,
+    stories: session.stories,
     roundKey: recorded.roundKey,
+    roundDay,
   }
+  session.plays = { ...(session.plays || {}), [roundDay]: session.lastResult }
   saveSession(id, session)
   return NextResponse.redirect(publicUrl(request, '/results'), 303)
 }

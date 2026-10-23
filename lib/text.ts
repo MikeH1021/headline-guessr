@@ -17,6 +17,10 @@ export function unescapeHtml(value: string) {
     .replace(/&amp;/gi, '&')
 }
 
+export function headlineKey(headline: string) {
+  return headline.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 240)
+}
+
 export function cleanTitle(raw: string) {
   const title = unescapeHtml(String(raw || '').replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim()
   if (!title || title.startsWith("'") || title.startsWith('+') || title.startsWith('{') || title.includes('function')) {

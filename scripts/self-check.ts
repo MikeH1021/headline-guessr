@@ -142,6 +142,43 @@ async function checkImport() {
   assert.equal(currentModel(), 'grok-4.3')
   assert.equal(readRound()?.cards.length, 1)
   assert.equal(buildRound()[0].ethnicity, 'White')
+
+  const { saveRound, readArchive, listArchives, addHeadline, useQueued, dropRoundCard, readQueue: queueNow } = await import('../lib/store')
+  const { hasSeen, markSeen } = await import('../lib/seen')
+  saveRound(
+    [{ source: 'CBS', headline: 'First saved robbery downtown', ethnicity: 'White' }],
+    new Date(2026, 9, 20, 12, 0, 0),
+  )
+  saveRound(
+    [{ source: 'NY Post', headline: 'Second saved robbery downtown', ethnicity: 'Black' }],
+    new Date(2026, 9, 21, 12, 0, 0),
+  )
+  assert.equal(readArchive('2026-10-20')?.cards[0].ethnicity, 'White')
+  assert.equal(readArchive('2026-10-21')?.cards.length, 1)
+  assert.ok(listArchives().some((item) => item.refreshedOn === '2026-10-20'))
+  assert.equal(hasSeen('A brand new headline', 'https://example.com/new'), false)
+  markSeen('A brand new headline', 'https://example.com/new', 'screened')
+  assert.equal(hasSeen('A brand new headline', 'https://example.com/new'), true)
+  assert.equal(
+    addHeadline('queue', {
+      source: 'Boston Herald',
+      headline: 'Man arrested after the harbor theft',
+      ethnicity: 'Hispanic',
+      url: 'https://example.com/harbor',
+    }, false),
+    'Added to the queue. 1 waiting.',
+  )
+  const queued = queueNow()
+  assert.equal(queued.length, 1)
+  assert.equal(useQueued(queued[0] ? queued[0].headline.toLowerCase() : '', false).includes('Moved'), true)
+  assert.equal(readArchive('2026-10-21')?.cards.length, 2)
+  assert.equal(queueNow().length, 0)
+  const added = readArchive('2026-10-21')?.cards.find((card) => card.headline.includes('harbor'))
+  assert.equal(added?.ethnicity, 'Hispanic')
+  assert.equal(dropRoundCard(added ? added.headline.toLowerCase() : '', false), 'Removed from today’s round.')
+  assert.equal(readArchive('2026-10-21')?.cards.length, 1)
+  assert.equal(buildRound('2026-10-20')[0].source, 'CBS')
+
   database.close()
   fs.rmSync(legacy, { recursive: true, force: true })
   fs.rmSync(data, { recursive: true, force: true })

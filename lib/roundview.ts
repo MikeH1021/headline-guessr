@@ -2,7 +2,7 @@ import { ETHNICITIES } from './constants'
 import { HeadlineError } from './errors'
 import { jobSnapshot } from './job'
 import { ordinal, rankForScore } from './scoring'
-import { currentRefreshTime, readRound, roundKey, roundStats, type StoredRound } from './store'
+import { currentRefreshTime, readArchive, readRound, roundStats, type StoredRound } from './store'
 import { localDateTimeISO, localISO, roundLabel } from './time'
 import type { LastResult, SessionData } from './types'
 
@@ -28,25 +28,46 @@ export function roundContext(round: StoredRound | null = readRound()) {
   }
 }
 
-export function buildRound() {
+export function playableDay(value: unknown) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''
+}
+
+export function resultForDay(session: SessionData, day: string) {
+  if (!day) return null
+  const saved = session.plays?.[day]
+  if (saved) return saved
+  const last = session.lastResult
+  if (!last) return null
+  if (last.roundDay === day || last.roundKey.startsWith(`${day}:`)) return last
+  return null
+}
+
+export function buildRound(day = '') {
+  if (day) {
+    const saved = readArchive(day)
+    if (!saved?.cards.length) throw new HeadlineError('That day is not saved.')
+    return saved.cards
+  }
   const round = readRound()
   const cards = round?.cards || []
   if (cards.length) return cards
   if (jobSnapshot().running) {
-    throw new HeadlineError('The daily refresh is still classifying articles. Watch the progress on the admin page.')
+    throw new HeadlineError('Today’s round is still being prepared.')
   }
   if (round?.refreshedOn) {
-    throw new HeadlineError('Today\'s refresh finished, and none of the articles stated an ethnicity. Change the prompt or run a debug refresh.')
+    throw new HeadlineError('Today’s round has no confirmed headlines yet.')
   }
-  throw new HeadlineError('The daily round is not ready. Set the refresh time on the admin page, or run a debug refresh.')
+  throw new HeadlineError('Today’s round is not ready yet.')
 }
 
 export function todayPlay(session: SessionData) {
-  const result = session.lastResult
-  const answers = session.correctAnswers || []
-  const guesses = result?.userAnswers || []
-  if (!result || !answers.length || guesses.length !== answers.length) return null
-  if (result.roundKey !== roundKey(answers.length)) return null
+  const current = readRound()
+  const today = current?.refreshedOn || ''
+  const result = today ? resultForDay(session, today) : null
+  if (!current || !result || !today) return null
+  const answers = result.answers?.length ? result.answers : session.correctAnswers
+  const guesses = result.userAnswers || []
+  if (!answers.length || guesses.length !== answers.length || answers.length !== current.cards.length) return null
   const total = answers.length
   const stats = roundStats(result.roundKey, result.score, total)
   const percentile = stats.plays ? stats.percentile : result.percentile
@@ -66,22 +87,26 @@ export function todayPlay(session: SessionData) {
   }
 }
 
-export function refreshResult(session: SessionData): LastResult | null {
-  const result = session.lastResult
-  const answers = session.correctAnswers || []
-  if (!result || !answers.length) return null
-  const total = answers.length
-  const key = result.roundKey || roundKey(total)
-  const stats = roundStats(key, result.score, total)
-  if (!stats.plays) return { ...result, roundKey: key }
+export function presentResult(result: LastResult | null, fallbackTotal = 0): LastResult | null {
+  if (!result?.roundKey) return result
+  const total = result.answers?.length || fallbackTotal
+  if (!total) return result
+  const stats = roundStats(result.roundKey, result.score, total)
+  if (!stats.plays) return result
   return {
     ...result,
-    roundKey: key,
     percentile: stats.percentile,
     ordinal: ordinal(stats.percentile),
     plays: stats.plays,
     counts: stats.counts,
   }
+}
+
+export function refreshResult(session: SessionData): LastResult | null {
+  const result = session.lastResult
+  const answers = result?.answers?.length ? result.answers : session.correctAnswers || []
+  if (!result || !answers.length) return null
+  return presentResult(result, answers.length)
 }
 
 export function hintText(headline: string, correctAnswer: string) {
