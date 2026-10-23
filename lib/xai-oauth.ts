@@ -158,7 +158,7 @@ export function devicePollKind(status: number, json: unknown): 'ok' | 'pending' 
   const error = json && typeof json === 'object' && !Array.isArray(json)
     ? String((json as Record<string, unknown>).error || '')
     : ''
-  if (status === 200 && deviceGrant(json)) return 'ok'
+  if (status >= 200 && status < 300 && deviceGrant(json)) return 'ok'
   if (error === 'authorization_pending') return 'pending'
   if (error === 'slow_down' || status === 429 || status === 408) return 'slow'
   if (error === 'access_denied' || error === 'expired_token' || error === 'invalid_grant') return 'denied'

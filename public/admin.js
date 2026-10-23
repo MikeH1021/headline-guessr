@@ -45,7 +45,11 @@
         }
         window.setTimeout(function pollGrok() {
             fetch('/admin/oauth', { headers: { Accept: 'application/json' } }).then(function (response) {
-                if (!response.ok) throw new Error('status');
+                if (!response.ok) {
+                    var failed = document.getElementById('grok-live');
+                    if (failed) failed.textContent = 'The check failed (HTTP ' + response.status + ').';
+                    throw new Error('status');
+                }
                 return response.json();
             }).then(function (data) {
                 if (!data || data.pending) {

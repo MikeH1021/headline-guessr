@@ -5,7 +5,7 @@ import { ETHNICITIES, FEED_SCAN, GROK_MODELS, PER_FEED } from '@/lib/constants'
 import { rumPublic, rumSummary } from '@/lib/rum'
 import { currentFeeds, currentModel, currentPrompt, currentRefreshTime, queuePublic, readQueue, readRound } from '@/lib/store'
 import { headlineKey } from '@/lib/text'
-import { oauthPublic } from '@/lib/xai-session'
+import { oauthPublic, pollPending } from '@/lib/xai-session'
 
 export const metadata = { title: 'Admin — Headline Guessr' }
 
@@ -81,7 +81,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const prompt = currentPrompt()
   const refreshTime = currentRefreshTime()
   const rum = rumPublic(rumSummary())
-  const grok = await oauthPublic()
+  let grok = await oauthPublic()
+  if (grok.pending) grok = await pollPending()
   const signature = queue.map((item) => item.key).join('|')
   return (
     <div className="frame frame-wide">
@@ -200,7 +201,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <details className="drawer" open>
           <summary>Grok account</summary>
           <p>Sign in with the Grok subscription. Classification spends that allowance. The API key is used only when xAI refuses the subscription. Signing in does not classify headlines.</p>
-          {grok.error && <p className="message">{grok.error}</p>}
+          {!grok.pending && grok.error && <p className="message">{grok.error}</p>}
           {grok.fallback && <p className="message">{grok.fallback}</p>}
           {grok.connected ? (
             <p>Signed in{grok.email ? ` as ${grok.email}` : ''}. {grok.error || grok.fallback ? 'The note above is the last billing result.' : 'Requests use the subscription allowance.'}</p>
@@ -211,11 +212,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           )}
           {grok.pending && (
             <div id="grok-pending" data-poll={grok.pollSeconds}>
-              <p>Open the sign-in page and approve this code. Leave this page open. It changes to signed in after the approval is seen. Cancel leaves the saved sign-in as it is.</p>
+              <meta httpEquiv="refresh" content={String(Math.max(6, grok.pollSeconds + 1))} />
+              <p>Open the sign-in page and approve this code. Leave this page open. It reloads on its own and changes to signed in when xAI confirms the approval.</p>
               <p className="grok-code" id="grok-user-code">{grok.userCode}</p>
               <p><a href={grok.verificationUrl} target="_blank" rel="noreferrer noopener">Open the sign-in page</a></p>
               <button className="btn btn-ghost" type="button" id="grok-copy">Copy code</button>
-              <p className="note" id="grok-live"></p>
+              <p className="message" id="grok-live">{grok.error || 'Checking the approval.'}</p>
               <form method="post" action="/admin/post" {...formQuiet}>
                 <button className="btn btn-ghost" type="submit" name="action" value="grok_cancel">Cancel</button>
               </form>
@@ -247,7 +249,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <div id="refresh-log"></div>
           <ul id="ready-list" className="ready-list"></ul>
         </details>
-        <BootScripts src="/admin.js" />
+        <BootScripts src="/admin.js?v=3" />
       </main>
     </div>
   )

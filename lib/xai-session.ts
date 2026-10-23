@@ -249,7 +249,7 @@ export async function beginSignIn() {
       deviceExpiresAt: Date.now() + challenge.expiresIn * 1000,
       lastPollAt: Date.now(),
       tokenEndpoint: endpoints.token,
-      lastError: '',
+      lastError: 'Waiting for the approval. This page checks xAI every few seconds.',
     })
     return { ok: true as const, message: 'Approve the code on this page. The current sign-in stays until you approve.' }
   } catch (err) {
@@ -308,12 +308,14 @@ async function pollOnce() {
     device_code: row.deviceCode,
   }))
   const kind = devicePollKind(response.status, response.json)
-  if (kind === 'pending') return oauthPublic()
-  if (kind === 'slow' || kind === 'wait') {
-    const detail = safeOauthDetail(response.json, row.deviceCode)
+  const detail = safeOauthDetail(response.json, row.deviceCode)
+  const reported = detail
+    ? `xAI replied HTTP ${response.status}: ${detail}`
+    : `xAI replied HTTP ${response.status} and no error code.`
+  if (kind === 'pending' || kind === 'slow' || kind === 'wait') {
     await writeRow({
       pollInterval: kind === 'slow' ? Math.min(row.pollInterval + 5, 30) : row.pollInterval,
-      lastError: detail && kind === 'wait' ? detail : '',
+      lastError: kind === 'pending' ? 'xAI has not confirmed that approval yet (authorization_pending).' : reported,
     })
     return oauthPublic()
   }
