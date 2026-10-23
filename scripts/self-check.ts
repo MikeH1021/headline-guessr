@@ -7,7 +7,7 @@ import { dealQueue, interleave, sameEvent } from '../lib/deal'
 import { feedName, feedUrl, publicFeedUrl } from '../lib/feeds'
 import { passwordMatches } from '../lib/password'
 import { publicOrigin } from '../lib/public-url'
-import { accuracyPercentile, median, ordinal, paceLabel, percentileRank, pythonRound, rankTier } from '../lib/scoring'
+import { accuracyPercentile, median, ordinal, paceLabel, percentileRank, pythonRound, rankForScore, rankTier } from '../lib/scoring'
 import { storiesFromRss } from '../lib/rss'
 
 assert.equal(pythonRound(12.5), 12)
@@ -26,6 +26,10 @@ assert.equal(percentileRank(0, [0], 4), 1)
 assert.equal(rankTier(1).title, 'Brainwashed liberal')
 assert.equal(percentileRank(2, [2, 2, 2], 4), 50)
 assert.equal(percentileRank(3, [3, 1, 0, 2], 4), 75)
+assert.equal(accuracyPercentile(5, 6), 83)
+assert.equal(percentileRank(5, [6, 5, 6], 6), 1)
+assert.equal(rankForScore(5, 6).id, 'noticer')
+assert.equal(rankForScore(5, 6).title, 'High-level noticer')
 assert.equal(rankTier(94).title, 'Based autist')
 assert.equal(rankTier(85).id, 'autist')
 assert.equal(rankTier(95).id, 'machine')

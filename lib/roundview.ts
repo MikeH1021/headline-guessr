@@ -1,7 +1,7 @@
 import { ETHNICITIES } from './constants'
 import { HeadlineError } from './errors'
 import { jobSnapshot } from './job'
-import { ordinal, rankTier } from './scoring'
+import { ordinal, rankForScore } from './scoring'
 import { currentRefreshTime, readRound, roundKey, roundStats, type StoredRound } from './store'
 import { localDateTimeISO, localISO, roundLabel } from './time'
 import type { LastResult, SessionData } from './types'
@@ -50,7 +50,7 @@ export function todayPlay(session: SessionData) {
   const total = answers.length
   const stats = roundStats(result.roundKey, result.score, total)
   const percentile = stats.plays ? stats.percentile : result.percentile
-  const tier = rankTier(percentile)
+  const tier = rankForScore(result.score, total)
   if (stats.plays && percentile !== result.percentile) {
     result.percentile = percentile
     result.ordinal = ordinal(percentile)

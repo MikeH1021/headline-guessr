@@ -48,6 +48,11 @@ export function accuracyPercentile(score: number, total: number) {
   return pct
 }
 
+/** Rank title follows percent correct. The board percentile is a separate number. */
+export function rankForScore(score: number, total: number): Tier {
+  return rankTier(accuracyPercentile(score, total))
+}
+
 export function percentileRank(score: number, sample: number[], total: number) {
   const value = Math.trunc(score)
   const values = sample.map((item) => Math.trunc(item))

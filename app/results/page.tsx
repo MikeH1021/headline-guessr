@@ -1,6 +1,6 @@
 import { BootScripts } from '@/components/boot-scripts'
 import { redirect } from 'next/navigation'
-import { rankLadder, rankTier } from '@/lib/scoring'
+import { rankForScore, rankLadder } from '@/lib/scoring'
 import { refreshResult, roundContext } from '@/lib/roundview'
 import { currentSession } from '@/lib/session'
 import { saveSession } from '@/lib/store'
@@ -15,7 +15,7 @@ export default async function ResultsPage() {
   data.lastResult = result
   saveSession(id, data)
   const total = data.correctAnswers.length
-  const tier = rankTier(result.percentile)
+  const tier = rankForScore(result.score, total)
   const ladder = rankLadder()
   const round = roundContext()
   const perfect = result.score === total && total > 0
