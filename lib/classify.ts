@@ -2,6 +2,7 @@ import {
   CANDIDATE_SIZE,
   ETHNICITIES,
   ETHNICITY_SCHEMA,
+  FEED_SCAN,
   PER_FEED,
   PICK_SCHEMA,
   QUEUE_CAP,
@@ -13,7 +14,7 @@ import { HeadlineError } from './errors'
 import { canonicalEthnicity } from './ethnicity'
 import { grok } from './grok'
 import { jobLog, jobSet, jobSnapshot, markRefreshFinished, markRefreshStarted } from './job'
-import { storiesFrom, storyCopy, type GatheredStory } from './rss'
+import { storiesFrom, storyCopy, takeUnseen, type GatheredStory } from './rss'
 import { hasSeen, markSeen } from './seen'
 import { headlineKey } from './text'
 import { appendQueue, currentFeeds, currentPrompt, currentRefreshTime, readQueue, readRound, saveRound, takeRound } from './store'
@@ -176,35 +177,46 @@ async function classifyDaily(deal: boolean) {
     throw new HeadlineError('Add your xAI API key as XAI_API_KEY in a .env file in this folder, then restart the app.')
   }
   const feeds = currentFeeds()
-  jobLog(`Fetching ${feeds.length} crime RSS feeds, ${PER_FEED} headlines each.`)
+  const scan = deal ? PER_FEED : FEED_SCAN
+  jobLog(deal
+    ? `Fetching ${feeds.length} crime RSS feeds, ${PER_FEED} headlines each.`
+    : `Fetching ${feeds.length} crime RSS feeds. Reading past already-checked headlines, up to ${PER_FEED} new ones each.`)
   const fetched = await Promise.all(feeds.map(async (feed) => {
     try {
-      return await storiesFrom(feed)
+      return await storiesFrom(feed, scan)
     } catch {
       return []
     }
   }))
-  const groups = feeds.map((feed, index) => {
-    const found = fetched[index] || []
-    jobLog(`${feed.name}: ${found.length} headlines.`)
-    return [...found]
-  })
-  const stories = interleave(groups, Math.max(1, feeds.length) * PER_FEED)
   const held = new Set<string>()
   for (const card of [...readQueue(), ...(readRound()?.cards || [])]) {
     const key = headlineKey(card.headline)
     if (key) held.add(key)
   }
-  const fresh = stories.filter((story) => {
+  const seenStory = (story: GatheredStory) => {
     const key = headlineKey(story.headline)
     if (key && held.has(key)) {
       markSeen(story.headline, story.url, 'queued')
-      return false
+      return true
     }
-    return !hasSeen(story.headline, story.url)
+    return hasSeen(story.headline, story.url)
+  }
+  let passed = 0
+  const groups = feeds.map((feed, index) => {
+    const found = [...(fetched[index] || [])]
+    if (deal) {
+      jobLog(`${feed.name}: ${found.length} headlines.`)
+      return found
+    }
+    const { fresh: unseen, checked } = takeUnseen(found, seenStory, PER_FEED)
+    passed += checked
+    jobLog(`${feed.name}: ${unseen.length} new. ${checked} already checked.`)
+    return unseen
   })
-  const checked = stories.length - fresh.length
-  jobLog(`Collected ${stories.length} headlines from ${feeds.length} feeds. ${checked} already checked. ${fresh.length} new.`)
+  const stories = interleave(groups, Math.max(1, feeds.length) * PER_FEED)
+  const fresh = deal ? stories.filter((story) => !seenStory(story)) : stories
+  const checked = deal ? stories.length - fresh.length : passed
+  jobLog(`Collected ${deal ? stories.length : fresh.length} headlines from ${feeds.length} feeds. ${checked} already checked. ${fresh.length} new.`)
   const picked: PickedStory[] = []
   const prior: string[] = []
   if (!fresh.length) {

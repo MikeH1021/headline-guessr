@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { BootScripts } from '@/components/boot-scripts'
 import { adminAuthed } from '@/lib/admin-auth'
-import { ETHNICITIES, GROK_MODELS } from '@/lib/constants'
+import { ETHNICITIES, FEED_SCAN, GROK_MODELS, PER_FEED } from '@/lib/constants'
 import { rumPublic, rumSummary } from '@/lib/rum'
 import { currentFeeds, currentModel, currentPrompt, currentRefreshTime, queuePublic, readQueue, readRound } from '@/lib/store'
 import { headlineKey } from '@/lib/text'
@@ -197,7 +197,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         </details>
         <details className="drawer" open>
           <summary>Refresh</summary>
-          <p>Queue new headlines only sends RSS entries that have not already been checked. A checked headline, one already in the queue, and one already in a round are skipped, so Grok is not called for them again.</p>
+          <p>Queue new headlines reads past entries that were already checked, up to {FEED_SCAN} per feed, and sends at most {PER_FEED} new ones from each. A checked headline, one already in the queue, and one already in a round are skipped, so Grok is not called for them again.</p>
           <form method="post" action="/admin/post" {...formQuiet}>
             <button className="btn" type="submit" name="action" value="queue_more">Queue new headlines</button>
           </form>

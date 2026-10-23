@@ -115,14 +115,28 @@ export async function fetchText(url: string) {
   return fetchBytes(url)
 }
 
-export async function storiesFrom(feed: Feed): Promise<GatheredStory[]> {
+export function takeUnseen<T>(stories: T[], seen: (story: T) => boolean, limit: number) {
+  const fresh: T[] = []
+  let checked = 0
+  for (const story of stories) {
+    if (seen(story)) {
+      checked += 1
+      continue
+    }
+    fresh.push(story)
+    if (fresh.length >= limit) break
+  }
+  return { fresh, checked }
+}
+
+export async function storiesFrom(feed: Feed, limit = PER_FEED): Promise<GatheredStory[]> {
   const body = await fetchBytes(feed.url)
   const found = feed.kind === 'cnn'
     ? storiesFromHtml(body, CNN_STORY, 'https://www.cnn.com')
     : feed.kind === 'nbc'
       ? storiesFromHtml(body, NBC_STORY, 'https://www.nbcnews.com')
       : storiesFromRss(body)
-  return found.slice(0, PER_FEED).map((story) => ({ ...story, source: feed.name }))
+  return found.slice(0, limit).map((story) => ({ ...story, source: feed.name }))
 }
 
 export function jsonStringAt(html: string, key: string) {

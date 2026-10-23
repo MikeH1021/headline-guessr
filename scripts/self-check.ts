@@ -8,7 +8,7 @@ import { feedName, feedUrl, publicFeedUrl } from '../lib/feeds'
 import { passwordMatches } from '../lib/password'
 import { publicOrigin } from '../lib/public-url'
 import { accuracyPercentile, median, ordinal, paceLabel, percentileRank, pythonRound, rankForScore, rankTier } from '../lib/scoring'
-import { storiesFromRss } from '../lib/rss'
+import { storiesFromRss, takeUnseen } from '../lib/rss'
 
 assert.equal(pythonRound(12.5), 12)
 assert.equal(pythonRound(13.5), 14)
@@ -109,6 +109,14 @@ const parsed = storiesFromRss(`<?xml version="1.0"?>
   <item><title>&lt;b&gt;Second &amp; last&lt;/b&gt;</title><link>https://example.com/b</link></item>
 </channel></rss>`)
 assert.deepEqual(parsed.map((story) => story.headline), ['Man arrested after the robbery', 'Second & last'])
+
+const older = Array.from({ length: 20 }, (_, index) => index)
+const dug = takeUnseen(older, (index) => index < 16, 16)
+assert.deepEqual(dug.fresh, [16, 17, 18, 19])
+assert.equal(dug.checked, 16)
+const capped = takeUnseen(older, (index) => index < 2, 4)
+assert.deepEqual(capped.fresh, [2, 3, 4, 5])
+assert.equal(capped.checked, 2)
 
 const legacy = fs.mkdtempSync(path.join(os.tmpdir(), 'hg-legacy-'))
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'hg-data-'))

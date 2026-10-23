@@ -51,6 +51,7 @@ export const MODEL_IDS = new Set<string>(GROK_MODELS.map((model) => model.id))
 export const ROUND_SIZE = 10
 export const CANDIDATE_SIZE = 16
 export const PER_FEED = 16
+export const FEED_SCAN = 80
 export const SCREEN_BATCH = 16
 export const MAX_FEEDS = 40
 export const QUEUE_CAP = 200
