@@ -21,6 +21,12 @@ export function headlineKey(headline: string) {
   return headline.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 240)
 }
 
+export function chargeHeadline(headline: string) {
+  const text = headline.replace(/\s+/g, ' ').trim()
+  if (!text || /\b(sentenced|lawsuit|appeal|appeals|verdict|retrial)\b/i.test(text)) return false
+  return /\b(charged|charges|arrested|accused|in custody)\b/i.test(text)
+}
+
 export function cleanTitle(raw: string) {
   const title = unescapeHtml(String(raw || '').replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim()
   if (!title || title.startsWith("'") || title.startsWith('+') || title.startsWith('{') || title.includes('function')) {

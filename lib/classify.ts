@@ -1,12 +1,13 @@
 import {
   CANDIDATE_SIZE,
+  CHARGE_REOPEN,
   ETHNICITIES,
   ETHNICITY_CONCURRENCY,
   ETHNICITY_SCHEMA,
   FEED_SCAN,
   PER_FEED,
   PICK_SCHEMA,
-  QUEUE_CAP,
+  QUEUE_TAKE,
   ROUND_SIZE,
   SCREEN_BATCH,
 } from './constants'
@@ -16,8 +17,8 @@ import { canonicalEthnicity } from './ethnicity'
 import { grok } from './grok'
 import { jobLog, jobSet, jobSnapshot, markRefreshFinished, markRefreshStarted } from './job'
 import { storiesFrom, storyCopy, takeUnseen, type GatheredStory } from './rss'
-import { hasSeen, markSeen } from './seen'
-import { headlineKey } from './text'
+import { markSeen, seenStatuses } from './seen'
+import { chargeHeadline, headlineKey } from './text'
 import { appendQueue, currentFeeds, currentPrompt, currentRefreshTime, readQueue, readRound, saveRound, takeRound } from './store'
 import { localISO } from './time'
 
@@ -57,9 +58,10 @@ async function screenStories(stories: GatheredStory[], priorEvents: string[] = [
   const instructions = `Screen these headlines for a game. Pick at most ${pickLimit}. `
     + 'Keep a headline only when its subject is a specific crime that has been committed: '
     + 'someone was attacked, killed, robbed, kidnapped, sexually assaulted, or otherwise victimized. '
-    + 'Reject headlines that are mainly about a court, a judge, a trial, a retrial, a sentence, an appeal, '
-    + 'a lawsuit, or another legal procedure, even if a crime is mentioned. '
-    + 'Reject politics, policy, explainers, and follow-up roundups. '
+    + 'An arrest or a charge for that crime is still the crime. Keep charged, arrested, accused, or in custody '
+    + 'when the headline names the attack, killing, robbery, or other victimization. '
+    + 'Reject a headline that is mainly a sentence, an appeal, a retrial, a verdict, or a lawsuit, and does not report the crime. '
+    + 'Reject politics, policy, explainers, and roundups of unrelated crimes. '
     + 'Each pick must be a different crime. If several headlines cover one event, such as the same school shooting, '
     + 'keep only the single clearest report of that crime. '
     + 'Use a mix of publications when you can. Use only the id numbers given. Do not rewrite headlines.'
@@ -142,9 +144,10 @@ async function classifyOne(story: GatheredStory) {
   return 'done'
 }
 
-async function readNext(group: PickedStory[]) {
-  while (group.length) {
-    const story = group.shift()
+async function readSlot(waiting: PickedStory[], stopAt: number) {
+  while (waiting.length) {
+    if (readQueue().length >= stopAt) return
+    const story = waiting.shift()
     if (!story) return
     try {
       if (await classifyOne(story) !== 'skip') return
@@ -157,35 +160,17 @@ async function readNext(group: PickedStory[]) {
 }
 
 async function classifySpread(picked: PickedStory[], stopAt: number) {
-  const order: string[] = []
-  const groups = new Map<string, PickedStory[]>()
-  for (const story of picked) {
-    const bucket = groups.get(story.source)
-    if (bucket) bucket.push(story)
-    else {
-      groups.set(story.source, [story])
-      order.push(story.source)
-    }
-  }
+  const waiting = [...picked]
   let pass = 0
-  while ([...groups.values()].some((group) => group.length)) {
+  while (waiting.length) {
     if (readQueue().length >= stopAt) {
-      jobLog(stopAt >= QUEUE_CAP
-        ? `The queue is full at ${QUEUE_CAP}.`
-        : `The queue can fill a round of ${ROUND_SIZE}. Later sources in this pass were included.`)
+      jobLog(`The queue can fill a round of ${ROUND_SIZE}. Later headlines in this pass were left for the next run.`)
       break
     }
     pass += 1
-    const wave: PickedStory[][] = []
-    for (const source of order) {
-      const group = groups.get(source) || []
-      if (!group.length) continue
-      wave.push(group)
-      if (wave.length >= ETHNICITY_CONCURRENCY) break
-    }
-    if (!wave.length) break
-    jobLog(`Pass ${pass}. Reading ${wave.length} articles at once.`)
-    await Promise.all(wave.map((group) => readNext(group)))
+    const slots = Math.min(ETHNICITY_CONCURRENCY, waiting.length)
+    jobLog(`Pass ${pass}. Reading ${slots} ${slots === 1 ? 'article' : 'articles'} at once.`)
+    await Promise.all(Array.from({ length: slots }, () => readSlot(waiting, stopAt)))
   }
 }
 
@@ -197,7 +182,7 @@ async function classifyDaily(deal: boolean) {
   const scan = deal ? PER_FEED : FEED_SCAN
   jobLog(deal
     ? `Fetching ${feeds.length} crime RSS feeds, ${PER_FEED} headlines each.`
-    : `Fetching ${feeds.length} crime RSS feeds. Reading past already-checked headlines, up to ${PER_FEED} new ones each.`)
+    : `Fetching ${feeds.length} crime RSS feeds. Reading past already-checked headlines, up to ${QUEUE_TAKE} new ones each.`)
   const fetched = await Promise.all(feeds.map(async (feed) => {
     try {
       return await storiesFrom(feed, scan)
@@ -210,13 +195,24 @@ async function classifyDaily(deal: boolean) {
     const key = headlineKey(card.headline)
     if (key) held.add(key)
   }
+  let reopened = 0
   const seenStory = (story: GatheredStory) => {
     const key = headlineKey(story.headline)
     if (key && held.has(key)) {
       markSeen(story.headline, story.url, 'queued')
       return true
     }
-    return hasSeen(story.headline, story.url)
+    const statuses = seenStatuses(story.headline, story.url)
+    if (!statuses.length) return false
+    if (
+      statuses.every((status) => status === 'screened')
+      && chargeHeadline(story.headline)
+      && reopened < CHARGE_REOPEN
+    ) {
+      reopened += 1
+      return false
+    }
+    return true
   }
   let passed = 0
   const groups = feeds.map((feed, index) => {
@@ -230,15 +226,16 @@ async function classifyDaily(deal: boolean) {
       jobLog(`${feed.name}: ${found.length} headlines.`)
       return found
     }
-    const { fresh: unseen, checked } = takeUnseen(found, seenStory, PER_FEED)
+    const { fresh: unseen, checked } = takeUnseen(found, seenStory, QUEUE_TAKE)
     passed += checked
     jobLog(`${feed.name}: ${unseen.length} new. ${checked} already checked.`)
     return unseen
   })
-  const stories = interleave(groups, Math.max(1, feeds.length) * PER_FEED)
+  const stories = interleave(groups, Math.max(1, feeds.length) * (deal ? PER_FEED : QUEUE_TAKE))
   const fresh = deal ? stories.filter((story) => !seenStory(story)) : stories
   const checked = deal ? stories.length - fresh.length : passed
   jobLog(`Collected ${deal ? stories.length : fresh.length} headlines from ${feeds.length} feeds. ${checked} already checked. ${fresh.length} new.`)
+  if (!deal && reopened) jobLog(`Including ${reopened} arrest headlines that were screened before.`)
   const picked: PickedStory[] = []
   const prior: string[] = []
   if (!fresh.length) {
@@ -251,7 +248,9 @@ async function classifyDaily(deal: boolean) {
       const chosen = await screenStories(batch, prior, batch.length)
       const chosenKeys = new Set(chosen.map((story) => headlineKey(story.headline)))
       for (const story of batch) {
-        if (!chosenKeys.has(headlineKey(story.headline))) markSeen(story.headline, story.url, 'screened')
+        if (!chosenKeys.has(headlineKey(story.headline))) {
+          markSeen(story.headline, story.url, chargeHeadline(story.headline) ? 'drop' : 'screened')
+        }
       }
       if (!chosen.length) {
         jobLog('No new crimes in this batch.')
@@ -266,7 +265,7 @@ async function classifyDaily(deal: boolean) {
   }
   if (picked.length) {
     jobLog(`Reading ${picked.length} candidates. Confirmed articles join the queue.`)
-    await classifySpread(picked, deal ? ROUND_SIZE : QUEUE_CAP)
+    await classifySpread(picked, ROUND_SIZE)
   } else if (fresh.length) {
     jobLog('No new crimes to classify.')
   }

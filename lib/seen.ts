@@ -19,13 +19,18 @@ export function seenKeys(headline: string, url: string) {
   return keys
 }
 
-export function hasSeen(headline: string, url: string) {
+export function seenStatuses(headline: string, url: string) {
   const keys = seenKeys(headline, url)
-  if (!keys.length) return false
-  const row = db().prepare(
-    `SELECT key FROM seen WHERE key IN (${keys.map(() => '?').join(',')}) LIMIT 1`,
-  ).get(...keys)
-  return Boolean(row)
+  if (!keys.length) return []
+  return (
+    db().prepare(
+      `SELECT status FROM seen WHERE key IN (${keys.map(() => '?').join(',')})`,
+    ).all(...keys) as { status: string }[]
+  ).map((row) => row.status)
+}
+
+export function hasSeen(headline: string, url: string) {
+  return seenStatuses(headline, url).length > 0
 }
 
 export function markSeen(headline: string, url: string, status: string) {

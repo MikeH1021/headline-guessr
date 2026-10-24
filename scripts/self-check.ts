@@ -19,6 +19,7 @@ import {
   xaiUrlProblem,
 } from '../lib/xai-oauth'
 import { articleText, storiesFromRss, takeUnseen } from '../lib/rss'
+import { chargeHeadline } from '../lib/text'
 
 assert.equal(pythonRound(12.5), 12)
 assert.equal(pythonRound(13.5), 14)
@@ -167,6 +168,11 @@ assert.equal(canonicalEthnicity('Middle-Eastern'), 'Middle Eastern')
 assert.equal(canonicalEthnicity('White'), 'White')
 assert.equal(canonicalEthnicity('Chinese'), '')
 assert.equal(canonicalEthnicity('mixed'), '')
+assert.equal(chargeHeadline('Man charged with murder after the shooting'), true)
+assert.equal(chargeHeadline('Suspect arrested in the robbery'), true)
+assert.equal(chargeHeadline('4 injured in a drive-by shooting'), false)
+assert.equal(chargeHeadline('Man sentenced for the killing'), false)
+assert.equal(chargeHeadline('Lawsuit claims he was assaulted'), false)
 const stated = 'Police said the suspect, described as a Black man, was arrested after the robbery downtown. '
 const body = `<html><script type="application/ld+json">{"@graph":[{"@type":"NewsArticle","articleBody":"${stated.repeat(4)}"}]}</script><p>Menu item that should not win.</p></html>`
 assert.ok(articleText(body).includes('described as a Black man'))
