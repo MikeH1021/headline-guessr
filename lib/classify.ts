@@ -202,7 +202,7 @@ async function classifyDaily(deal: boolean) {
     try {
       return await storiesFrom(feed, scan)
     } catch {
-      return []
+      return null
     }
   }))
   const held = new Set<string>()
@@ -220,7 +220,12 @@ async function classifyDaily(deal: boolean) {
   }
   let passed = 0
   const groups = feeds.map((feed, index) => {
-    const found = [...(fetched[index] || [])]
+    const batch = fetched[index]
+    if (!batch) {
+      jobLog(`${feed.name}: the feed could not be read.`)
+      return []
+    }
+    const found = [...batch]
     if (deal) {
       jobLog(`${feed.name}: ${found.length} headlines.`)
       return found

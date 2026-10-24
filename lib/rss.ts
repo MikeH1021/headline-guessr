@@ -15,6 +15,13 @@ const parser = new XMLParser({
   ignoreAttributes: false,
   removeNSPrefix: true,
   trimValues: false,
+  processEntities: {
+    maxExpansionDepth: 10,
+    maxEntitySize: 10_000,
+    maxEntityCount: 1000,
+    maxTotalExpansions: 50_000,
+    maxExpandedLength: 2_000_000,
+  },
 })
 
 const CNN_STORY = /<a href="([^"]+)"[^>]*class="[^"]*container__link[^"]*"[^>]*>[\s\S]{0,2500}?<span class="container__headline-text"[^>]*data-editable="headline"[^>]*>(.*?)<\/span>/g
@@ -41,7 +48,7 @@ export function storiesFromRss(xml: string) {
   try {
     root = parser.parse(xml)
   } catch {
-    return []
+    throw new Error('rss parse')
   }
   const record = root && typeof root === 'object' ? root as Record<string, unknown> : {}
   const rss = record.rss && typeof record.rss === 'object' ? record.rss as Record<string, unknown> : record
@@ -131,6 +138,7 @@ export function takeUnseen<T>(stories: T[], seen: (story: T) => boolean, limit: 
 
 export async function storiesFrom(feed: Feed, limit = PER_FEED): Promise<GatheredStory[]> {
   const body = await fetchBytes(feed.url)
+  if (!body.trim()) throw new Error('rss empty')
   const found = feed.kind === 'cnn'
     ? storiesFromHtml(body, CNN_STORY, 'https://www.cnn.com')
     : feed.kind === 'nbc'

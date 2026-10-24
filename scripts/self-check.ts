@@ -147,6 +147,10 @@ const parsed = storiesFromRss(`<?xml version="1.0"?>
   <item><title>&lt;b&gt;Second &amp; last&lt;/b&gt;</title><link>https://example.com/b</link></item>
 </channel></rss>`)
 assert.deepEqual(parsed.map((story) => story.headline), ['Man arrested after the robbery', 'Second & last'])
+const encoded = Array.from({ length: 1001 }, () => '&amp;').join('')
+const wide = storiesFromRss(`<?xml version="1.0"?><rss><channel><item><title>Arrest ${encoded} reported</title><link>https://example.com/wide</link></item></channel></rss>`)
+assert.equal(wide.length, 1)
+assert.equal(wide[0]?.headline.startsWith('Arrest '), true)
 
 const older = Array.from({ length: 20 }, (_, index) => index)
 const dug = takeUnseen(older, (index) => index < 16, 16)
