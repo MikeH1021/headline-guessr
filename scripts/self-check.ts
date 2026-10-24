@@ -101,6 +101,23 @@ assert.deepEqual(
   ['A1', 'B1', 'A2'],
 )
 assert.equal(sameEvent('school shooting', 'the school shooting downtown'), true)
+const frat = 'Sexual assault reported at frat house near University of Chicago over the weekend'
+const fratFollow = 'No arrests in wake of reported sexual assault at University of Chicago frat house, police say'
+const fratCheer = 'Group cheered as woman was sexually assaulted at University of Chicago frat house, police report says'
+const otherFrat = 'Another woman says she was sexually assaulted at a University of Chicago fraternity party'
+assert.equal(sameEvent(frat, fratFollow), true)
+assert.equal(sameEvent(frat, fratCheer), true)
+assert.equal(sameEvent(fratFollow, fratCheer), true)
+assert.equal(sameEvent(frat, otherFrat), false)
+assert.equal(sameEvent('Girl, 15, killed in Arcadia; suspect suffers self-inflicted gunshot wound in Pasadena', 'Gun jammed when neo-Nazi attempted mass shooting at Hindu temple in Aurora'), false)
+assert.equal(sameEvent('Woman accused of shoving 73-year-old CTA passenger off Loop bus', '3 who beat, dragged 65-year-old man off Red Line train sought by police'), false)
+const dealtDupes = dealQueue([
+  { source: 'WGN', headline: frat, ethnicity: 'Asian' },
+  { source: 'Sun', headline: fratFollow, ethnicity: 'Asian' },
+  { source: 'Mail', headline: 'Axe attack on his elderly parents', ethnicity: 'White' },
+], 10)
+assert.deepEqual(dealtDupes.dealt.map((card) => card.source), ['WGN', 'Mail'])
+assert.equal(dealtDupes.rest.length, 0)
 assert.equal(feedUrl('javascript:alert(1)'), '')
 assert.equal(feedUrl('https://example.com/crime/feed'), 'https://example.com/crime/feed')
 assert.equal(publicFeedUrl('https://example.com/crime/feed'), 'https://example.com/crime/feed')

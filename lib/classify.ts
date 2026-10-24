@@ -136,11 +136,11 @@ async function classifyOne(story: GatheredStory) {
     return 'done'
   }
   const card = { ...answered[0], url: story.url || '' }
-  const { length, added } = appendQueue(card)
+  const { length, added, duplicate } = appendQueue(card)
   markSeen(story.headline, story.url, 'queued')
   jobSet({ kept: length })
   if (added) jobLog(`Stated: ${card.ethnicity}. Queue has ${length}.`)
-  else jobLog('Already in the queue.')
+  else jobLog(duplicate ? 'Same incident as a story already queued.' : 'Already in the queue.')
   return 'done'
 }
 
@@ -238,6 +238,10 @@ async function classifyDaily(deal: boolean) {
   if (!deal && reopened) jobLog(`Including ${reopened} arrest headlines that were screened before.`)
   const picked: PickedStory[] = []
   const prior: string[] = []
+  for (const card of [...readQueue(), ...(readRound()?.cards || [])]) {
+    const key = headlineKey(card.headline)
+    if (key) prior.push(key)
+  }
   if (!fresh.length) {
     jobLog('No new headlines. Grok was not called.')
   } else {

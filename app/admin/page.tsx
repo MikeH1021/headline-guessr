@@ -3,7 +3,7 @@ import { BootScripts } from '@/components/boot-scripts'
 import { adminAuthed } from '@/lib/admin-auth'
 import { ETHNICITIES, FEED_SCAN, GROK_MODELS, QUEUE_TAKE, ROUND_SIZE } from '@/lib/constants'
 import { rumPublic, rumSummary } from '@/lib/rum'
-import { currentFeeds, currentModel, currentPrompt, currentRefreshTime, queuePublic, readQueue, readRound } from '@/lib/store'
+import { collapseQueue, currentFeeds, currentModel, currentPrompt, currentRefreshTime, queuePublic, readQueue, readRound } from '@/lib/store'
 import { headlineKey } from '@/lib/text'
 import { oauthPublic, pollPending } from '@/lib/xai-session'
 
@@ -74,6 +74,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const params = await searchParams
   const notice = (params.notice || '').slice(0, 300)
   const feeds = currentFeeds()
+  const removed = collapseQueue()
+  const queueNotice = removed
+    ? `Removed ${removed} repeated ${removed === 1 ? 'incident' : 'incidents'} from the queue.`
+    : ''
   const queue = queuePublic(readQueue())
   const round = readRound()
   const roundCards = round?.cards || []
@@ -98,7 +102,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <main id="main">
         <h1>Admin</h1>
         <p>The daily round is 10 headlines. Confirmed articles wait in the queue, and the round takes one source at a time.</p>
-        {notice && <p className="message">{notice}</p>}
+        {(notice || queueNotice) && <p className="message">{notice || queueNotice}</p>}
         <details className="drawer" open>
           <summary>Today’s round</summary>
           <p>{round ? `${roundCards.length} headlines saved ${round.refreshedAt}.` : 'No round is saved yet.'} Remove one, or move a queued headline in, without running a refresh.</p>

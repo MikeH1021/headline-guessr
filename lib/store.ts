@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 import { DEFAULT_ETHNICITY_PROMPT, DEFAULT_REFRESH_TIME, MAX_FEEDS, MODEL_IDS, QUEUE_CAP, ROUND_SIZE, SCORE_CAP } from './constants'
 import { db } from './db'
-import { dealQueue } from './deal'
+import { dealQueue, sameEvent } from './deal'
 import { canonicalEthnicity } from './ethnicity'
 import { defaultFeeds, feedName, feedUrl, parseFeeds, publicFeedUrl, validRefreshTime, type Feed } from './feeds'
 import { percentileRank } from './scoring'
@@ -216,13 +216,30 @@ export function queuePublic(rows: QueueCard[]) {
   }))
 }
 
+export function collapseQueue() {
+  return db().transaction(() => {
+    const queue = readQueue()
+    const kept: QueueCard[] = []
+    for (const item of queue) {
+      if (kept.some((card) => sameEvent(card.headline, item.headline))) continue
+      kept.push(item)
+    }
+    if (kept.length === queue.length) return 0
+    replaceQueue(kept)
+    return queue.length - kept.length
+  })()
+}
+
 export function appendQueue(card: { source: string; headline: string; ethnicity: string; url?: string }) {
   const key = headlineKey(card.headline)
   const ethnicity = canonicalEthnicity(card.ethnicity)
-  if (!key || !ethnicity) return { length: readQueue().length, added: false }
+  if (!key || !ethnicity) return { length: readQueue().length, added: false, duplicate: false }
   return db().transaction(() => {
     const queue = readQueue()
-    if (queue.some((item) => headlineKey(item.headline) === key)) return { length: queue.length, added: false }
+    const round = readRound()
+    const duplicate = queue.some((item) => headlineKey(item.headline) === key || sameEvent(item.headline, card.headline))
+      || (round?.cards || []).some((item) => sameEvent(item.headline, card.headline))
+    if (duplicate) return { length: queue.length, added: false, duplicate: true }
     queue.push({
       source: card.source,
       headline: card.headline,
@@ -231,12 +248,13 @@ export function appendQueue(card: { source: string; headline: string; ethnicity:
     })
     const capped = queue.length > QUEUE_CAP ? queue.slice(-QUEUE_CAP) : queue
     replaceQueue(capped)
-    return { length: capped.length, added: true }
+    return { length: capped.length, added: true, duplicate: false }
   })()
 }
 
 export function takeRound() {
   return db().transaction(() => {
+    collapseQueue()
     const queue = readQueue()
     const { dealt, rest } = dealQueue(queue, ROUND_SIZE)
     replaceQueue(rest)
@@ -286,7 +304,7 @@ export function useQueued(key: string, running: boolean) {
     const round = readRound()
     if (!round) return 'There is no round yet. Add the headline to the queue instead.'
     const cards = round.cards
-    if (cards.some((card) => headlineKey(card.headline) === wanted)) return 'That headline is already in today’s round.'
+    if (cards.some((card) => sameEvent(card.headline, item.headline))) return 'That incident is already in today’s round.'
     if (cards.length >= ROUND_SIZE) return `Today’s round already has ${ROUND_SIZE} headlines.`
     replaceCurrentCards([...cards, { source: item.source, headline: item.headline, ethnicity: item.ethnicity }])
     replaceQueue(queue.filter((card) => headlineKey(card.headline) !== wanted))
@@ -314,7 +332,7 @@ export function addHeadline(
   return db().transaction(() => {
     if (target === 'queue') {
       const queue = readQueue()
-      if (queue.some((item) => headlineKey(item.headline) === key)) return 'That headline is already in the queue.'
+      if (queue.some((item) => sameEvent(item.headline, headline))) return 'That incident is already in the queue.'
       queue.push({ source, headline, ethnicity, url })
       const capped = queue.length > QUEUE_CAP ? queue.slice(-QUEUE_CAP) : queue
       replaceQueue(capped)
@@ -324,7 +342,7 @@ export function addHeadline(
     const round = readRound()
     if (!round) return 'There is no round yet. Add the headline to the queue instead.'
     const cards = round.cards
-    if (cards.some((card) => headlineKey(card.headline) === key)) return 'That headline is already in today’s round.'
+    if (cards.some((card) => sameEvent(card.headline, headline))) return 'That incident is already in today’s round.'
     if (cards.length >= ROUND_SIZE) return `Today’s round already has ${ROUND_SIZE} headlines.`
     replaceCurrentCards([...cards, { source, headline, ethnicity }])
     markSeen(headline, url, 'round')
