@@ -1,6 +1,8 @@
-export type RoundCard = { source: string; headline: string; ethnicity: string }
+export type RoundCard = { source: string; headline: string; ethnicity: string; url?: string }
 
 export type QueueCard = RoundCard & { url: string }
+
+export type StoryRef = { source: string; headline: string; url?: string }
 
 export type LastResult = {
   score: number
@@ -10,14 +12,14 @@ export type LastResult = {
   counts: number[]
   userAnswers: string[]
   answers?: string[]
-  stories?: { source: string; headline: string }[]
+  stories?: StoryRef[]
   roundKey: string
   roundDay?: string
 }
 
 export type SessionData = {
   userId: string
-  stories: { source: string; headline: string }[]
+  stories: StoryRef[]
   correctAnswers: string[]
   lastResult: LastResult | null
   playDay?: string

@@ -7,7 +7,7 @@ import { canonicalEthnicity } from './ethnicity'
 import { feedName, feedUrl, parseFeeds, validRefreshTime } from './feeds'
 import { recoverJob } from './job'
 import { startScheduler } from './scheduler'
-import { cleanTitle } from './text'
+import { articleHref, cleanTitle } from './text'
 
 const RUM_KIND_SET = new Set<string>(RUM_KINDS)
 
@@ -59,7 +59,8 @@ function importLegacy(database: Database.Database) {
       const source = feedName(item.source)
       const headline = cleanTitle(typeof item.headline === 'string' ? item.headline : '')
       const ethnicity = canonicalEthnicity(item.ethnicity)
-      if (source && headline && ethnicity) clean.push({ source, headline, ethnicity })
+      const url = articleHref(item.url)
+      if (source && headline && ethnicity) clean.push({ source, headline, ethnicity, ...(url ? { url } : {}) })
     }
     if (typeof record.refreshed_on === 'string' && record.refreshed_on) {
       database.prepare(

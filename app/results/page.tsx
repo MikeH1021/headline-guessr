@@ -3,8 +3,9 @@ import { redirect } from 'next/navigation'
 import { rankForScore, rankLadder } from '@/lib/scoring'
 import { playableDay, presentResult, refreshResult, resultForDay, roundContext } from '@/lib/roundview'
 import { currentSession } from '@/lib/session'
-import { readArchive, saveSession } from '@/lib/store'
-import { isBanner } from '@/lib/text'
+import { articleUrls } from '@/lib/seen'
+import { readArchive, readRound, saveSession } from '@/lib/store'
+import { articleHref, headlineKey, isBanner } from '@/lib/text'
 
 export const metadata = { title: 'Results — Headline Guessr' }
 
@@ -26,7 +27,24 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const total = answers.length
   const tier = rankForScore(result.score, total)
   const ladder = rankLadder()
-  const round = day ? roundContext(readArchive(day)) : roundContext()
+  const savedRound = day ? readArchive(day) : readRound()
+  const round = roundContext(savedRound)
+  const savedUrls = new Map<string, string>()
+  for (const card of savedRound?.cards || []) {
+    const href = articleHref(card.url)
+    const key = headlineKey(card.headline)
+    if (href && key) savedUrls.set(key, href)
+  }
+  const remembered = stories.some((story) => {
+    const key = headlineKey(story?.headline || '')
+    return story && !articleHref(story.url) && !(key && savedUrls.get(key))
+  })
+    ? articleUrls()
+    : new Map<string, string>()
+  const hrefFor = (story: { headline: string; url?: string }) => {
+    const key = headlineKey(story.headline)
+    return articleHref(story.url) || (key && savedUrls.get(key)) || (key && remembered.get(key)) || ''
+  }
   const again = day ? `/game?day=${day}` : '/game'
   const perfect = result.score === total && total > 0
   return (
@@ -102,12 +120,21 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
             const answer = answers[index] || ''
             const story = stories[index]
             const right = guess === answer
+            const href = story ? hrefFor(story) : ''
             return (
               <li key={index} className={`review ${right ? 'is-right' : 'is-wrong'}`} style={{ animationDelay: `${index * 50}ms` }}>
                 {story && (
                   <>
                     <p className="source">{story.source}</p>
-                    <h2 className={isBanner(story.headline) ? 'is-banner' : undefined}>{story.headline}</h2>
+                    <h2 className={isBanner(story.headline) ? 'is-banner' : undefined}>
+                      {href ? (
+                        <a href={href} target="_blank" rel="noopener noreferrer">
+                          {story.headline}
+                        </a>
+                      ) : (
+                        story.headline
+                      )}
+                    </h2>
                   </>
                 )}
                 <p className="verdict">{right ? 'Right' : 'Wrong'}</p>

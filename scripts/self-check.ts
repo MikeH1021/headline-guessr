@@ -20,7 +20,7 @@ import {
 } from '../lib/xai-oauth'
 import { articleText, storiesFromRss, takeUnseen } from '../lib/rss'
 import { DEFAULT_FEEDS, QUEUE_TARGET, ROUND_SIZE, SHORT_REOPEN } from '../lib/constants'
-import { chargeHeadline, chargedStory } from '../lib/text'
+import { articleHref, chargeHeadline, chargedStory, headlineKey } from '../lib/text'
 
 assert.equal(pythonRound(12.5), 12)
 assert.equal(pythonRound(13.5), 14)
@@ -127,6 +127,9 @@ assert.equal(publicFeedUrl('http://169.254.169.254/latest'), '')
 assert.equal(publicFeedUrl('http://10.1.2.3/feed'), '')
 assert.equal(publicFeedUrl('https://localhost/feed'), '')
 assert.equal(publicFeedUrl('https://user:pass@example.com/feed'), '')
+assert.equal(articleHref('https://example.com/story'), 'https://example.com/story')
+assert.equal(articleHref('javascript:alert(1)'), '')
+assert.equal(articleHref('https://user:pass@example.com/story'), '')
 assert.equal(DEFAULT_FEEDS.length, 41)
 assert.equal(DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][0], 'Charged')
 assert.equal(publicFeedUrl(DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1]), DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1])
@@ -216,7 +219,7 @@ const scores = JSON.stringify([{ round: '2026-10-22:1', score: 1 }])
 const round = JSON.stringify({
   refreshed_on: '2026-10-22',
   refreshed_at: '2026-10-22 12:00:00',
-  cards: [{ source: 'CBS', headline: 'A reported robbery downtown', ethnicity: 'White' }],
+  cards: [{ source: 'CBS', headline: 'A reported robbery downtown', ethnicity: 'White', url: 'https://example.com/robbery' }],
 })
 fs.writeFileSync(path.join(legacy, 'scores.json'), scores)
 fs.writeFileSync(path.join(legacy, 'round.json'), round)
@@ -250,13 +253,20 @@ async function checkImport() {
   assert.equal(currentModel(), 'grok-4.3')
   assert.equal(readRound()?.cards.length, 1)
   assert.equal(buildRound()[0].ethnicity, 'White')
+  assert.equal(readRound()?.cards[0].url, 'https://example.com/robbery')
 
   const { saveRound, readArchive, listArchives, addHeadline, useQueued, dropRoundCard, readQueue: queueNow } = await import('../lib/store')
   const { hasSeen, markSeen } = await import('../lib/seen')
   saveRound(
-    [{ source: 'CBS', headline: 'First saved robbery downtown', ethnicity: 'White' }],
+    [{ source: 'CBS', headline: 'First saved robbery downtown', ethnicity: 'White', url: 'javascript:alert(1)' }],
     new Date(2026, 9, 20, 12, 0, 0),
   )
+  assert.equal(readArchive('2026-10-20')?.cards[0].url, undefined)
+  saveRound(
+    [{ source: 'CBS', headline: 'First saved robbery downtown', ethnicity: 'White', url: 'https://example.com/first' }],
+    new Date(2026, 9, 20, 12, 0, 0),
+  )
+  assert.equal(readArchive('2026-10-20')?.cards[0].url, 'https://example.com/first')
   saveRound(
     [{ source: 'NY Post', headline: 'Second saved robbery downtown', ethnicity: 'Black' }],
     new Date(2026, 9, 21, 12, 0, 0),
@@ -283,6 +293,13 @@ async function checkImport() {
   assert.equal(queueNow().length, 0)
   const added = readArchive('2026-10-21')?.cards.find((card) => card.headline.includes('harbor'))
   assert.equal(added?.ethnicity, 'Hispanic')
+  assert.equal(added?.url, 'https://example.com/harbor')
+  const { articleUrls } = await import('../lib/seen')
+  markSeen('Harbor headline for the link', 'https://example.com/harbor-story', 'round')
+  markSeen('Second headline for the link', 'https://example.com/second-story', 'round')
+  const urls = articleUrls()
+  assert.equal(urls.get(headlineKey('Harbor headline for the link')), 'https://example.com/harbor-story')
+  assert.equal(urls.get(headlineKey('Second headline for the link')), 'https://example.com/second-story')
   assert.equal(dropRoundCard(added ? added.headline.toLowerCase() : '', false), 'Removed from today’s round.')
   assert.equal(readArchive('2026-10-21')?.cards.length, 1)
   assert.equal(buildRound('2026-10-20')[0].source, 'CBS')

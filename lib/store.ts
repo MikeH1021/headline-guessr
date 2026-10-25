@@ -6,7 +6,7 @@ import { canonicalEthnicity } from './ethnicity'
 import { defaultFeeds, feedName, feedUrl, parseFeeds, publicFeedUrl, validRefreshTime, type Feed } from './feeds'
 import { percentileRank } from './scoring'
 import { markSeen } from './seen'
-import { cleanTitle, headlineKey } from './text'
+import { articleHref, cleanTitle, headlineKey } from './text'
 import { localISO } from './time'
 import type { LastResult, QueueCard, RoundCard, SessionData } from './types'
 
@@ -119,11 +119,15 @@ export function readRound(): StoredRound | null {
 }
 
 function cardPayload(cards: RoundCard[]) {
-  return JSON.stringify(cards.map((card) => ({
-    source: card.source,
-    headline: card.headline,
-    ethnicity: card.ethnicity,
-  })))
+  return JSON.stringify(cards.map((card) => {
+    const url = articleHref(card.url)
+    return {
+      source: card.source,
+      headline: card.headline,
+      ethnicity: card.ethnicity,
+      ...(url ? { url } : {}),
+    }
+  }))
 }
 
 function writeArchive(day: string, at: string, payload: string) {
@@ -317,7 +321,12 @@ export function useQueued(key: string, running: boolean) {
     const cards = round.cards
     if (cards.some((card) => sameEvent(card.headline, item.headline))) return 'That incident is already in today’s round.'
     if (cards.length >= ROUND_SIZE) return `Today’s round already has ${ROUND_SIZE} headlines.`
-    replaceCurrentCards([...cards, { source: item.source, headline: item.headline, ethnicity: item.ethnicity }])
+    replaceCurrentCards([...cards, {
+      source: item.source,
+      headline: item.headline,
+      ethnicity: item.ethnicity,
+      url: articleHref(item.url),
+    }])
     replaceQueue(queue.filter((card) => headlineKey(card.headline) !== wanted))
     markSeen(item.headline, item.url, 'round')
     return 'Moved into today’s round.'
@@ -355,7 +364,7 @@ export function addHeadline(
     const cards = round.cards
     if (cards.some((card) => sameEvent(card.headline, headline))) return 'That incident is already in today’s round.'
     if (cards.length >= ROUND_SIZE) return `Today’s round already has ${ROUND_SIZE} headlines.`
-    replaceCurrentCards([...cards, { source, headline, ethnicity }])
+    replaceCurrentCards([...cards, { source, headline, ethnicity, url: articleHref(url) }])
     markSeen(headline, url, 'round')
     return 'Added to today’s round.'
   })()

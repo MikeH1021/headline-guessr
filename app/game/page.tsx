@@ -4,7 +4,7 @@ import { HeadlineError } from '@/lib/errors'
 import { buildRound, playableDay, roundContext } from '@/lib/roundview'
 import { currentSession } from '@/lib/session'
 import { readArchive, readRound, saveSession } from '@/lib/store'
-import { isBanner } from '@/lib/text'
+import { articleHref, isBanner } from '@/lib/text'
 
 export const metadata = { title: 'Play — Headline Guessr' }
 
@@ -18,7 +18,12 @@ export default async function GamePage({ searchParams }: { searchParams: Promise
   let cards: { source: string; headline: string; answer: string }[] = []
   try {
     const dealt = buildRound(day)
-    data.stories = dealt.map((card) => ({ source: card.source, headline: card.headline }))
+    data.stories = dealt.map((card) => {
+      const url = articleHref(card.url)
+      return url
+        ? { source: card.source, headline: card.headline, url }
+        : { source: card.source, headline: card.headline }
+    })
     data.correctAnswers = dealt.map((card) => card.ethnicity)
     data.playDay = saved?.refreshedOn || day
     saveSession(id, data)

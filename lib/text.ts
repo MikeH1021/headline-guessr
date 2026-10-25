@@ -51,6 +51,20 @@ export function plainText(raw: string) {
   return unescapeHtml(String(raw || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
 }
 
+export function articleHref(value: unknown) {
+  if (typeof value !== 'string') return ''
+  const raw = value.trim()
+  if (!raw || raw.length > 4000 || !/^https?:\/\/\S+$/.test(raw)) return ''
+  try {
+    const parsed = new URL(raw)
+    if (parsed.username || parsed.password) return ''
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return ''
+    return parsed.href
+  } catch {
+    return ''
+  }
+}
+
 export function storyUrl(url: string, base: string) {
   let value = unescapeHtml((url || '').trim())
   if (value.startsWith('//')) value = `https:${value}`
