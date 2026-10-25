@@ -19,7 +19,8 @@ import {
   xaiUrlProblem,
 } from '../lib/xai-oauth'
 import { articleText, storiesFromRss, takeUnseen } from '../lib/rss'
-import { chargeHeadline } from '../lib/text'
+import { DEFAULT_FEEDS, QUEUE_TARGET, ROUND_SIZE, SHORT_REOPEN } from '../lib/constants'
+import { chargeHeadline, chargedStory } from '../lib/text'
 
 assert.equal(pythonRound(12.5), 12)
 assert.equal(pythonRound(13.5), 14)
@@ -126,6 +127,20 @@ assert.equal(publicFeedUrl('http://169.254.169.254/latest'), '')
 assert.equal(publicFeedUrl('http://10.1.2.3/feed'), '')
 assert.equal(publicFeedUrl('https://localhost/feed'), '')
 assert.equal(publicFeedUrl('https://user:pass@example.com/feed'), '')
+assert.equal(DEFAULT_FEEDS.length, 41)
+assert.equal(DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][0], 'Charged')
+assert.equal(publicFeedUrl(DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1]), DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1])
+assert.equal(QUEUE_TARGET, 20)
+assert.equal(SHORT_REOPEN, 40)
+assert.ok(QUEUE_TARGET > ROUND_SIZE)
+assert.deepEqual(
+  chargedStory('Charged', 'Man charged with murder after the remains were found - KMOV'),
+  { source: 'KMOV', headline: 'Man charged with murder after the remains were found' },
+)
+assert.deepEqual(
+  chargedStory('WGN', 'Sexual assault reported at a house - weekend'),
+  { source: 'WGN', headline: 'Sexual assault reported at a house - weekend' },
+)
 const salt = randomBytes(16)
 const sample = scryptSync('sample-pass', salt, 32, { N: 16384, r: 8, p: 1 })
 const stored = `scrypt:16384:8:1:${salt.toString('base64url')}:${sample.toString('base64url')}`

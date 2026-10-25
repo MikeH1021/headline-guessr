@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { BootScripts } from '@/components/boot-scripts'
 import { adminAuthed } from '@/lib/admin-auth'
-import { ETHNICITIES, FEED_SCAN, GROK_MODELS, QUEUE_TAKE, ROUND_SIZE } from '@/lib/constants'
+import { ETHNICITIES, FEED_SCAN, GROK_MODELS, QUEUE_TAKE, QUEUE_TARGET, ROUND_SIZE } from '@/lib/constants'
 import { rumPublic, rumSummary } from '@/lib/rum'
 import { collapseQueue, currentFeeds, currentModel, currentPrompt, currentRefreshTime, queuePublic, readQueue, readRound } from '@/lib/store'
 import { headlineKey } from '@/lib/text'
@@ -240,11 +240,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         </details>
         <details className="drawer" open>
           <summary>Refresh</summary>
-          <p>Queue new headlines reads past entries that were already checked, up to {FEED_SCAN} per feed, and sends at most {QUEUE_TAKE} new ones from each. It stops once the queue has {ROUND_SIZE}, enough for the next round. An arrest headline that was screened before can be tried once more. A checked headline, one already in the queue, and one already in a round are skipped, so Grok is not called for them again.</p>
+          <p>Queue new headlines reads past entries that were already checked, up to {FEED_SCAN} per feed, and sends at most {QUEUE_TAKE} new ones from each. It stops once the queue has {QUEUE_TARGET}, enough for more than one round. An arrest headline that was screened before can be tried once more. A headline whose page was too short to read is searched once more. A round is saved only when {ROUND_SIZE} headlines are confirmed. A checked headline, one already in the queue, and one already in a round are skipped, so Grok is not called for them again.</p>
           <form method="post" action="/admin/post" {...formQuiet}>
             <button className="btn" type="submit" name="action" value="queue_more">Queue new headlines</button>
           </form>
-          <p>Debug refresh does the same skip, then deals today’s round from the queue. That replaces the round people are playing.</p>
+          <p>Debug refresh does the same search, then deals today’s round from the queue once {ROUND_SIZE} headlines are confirmed. That replaces the round people are playing. Fewer than that leaves today’s round as it is.</p>
           <form method="post" action="/admin/post" {...formQuiet}>
             <label className="check"><input type="checkbox" name="debug_refresh" value="1" id="debug-refresh" /> Debug refresh</label>
             <button className="btn" type="submit" name="action" value="refresh" id="refresh-btn" disabled>Run debug refresh</button>

@@ -86,6 +86,17 @@ export function removeFeed(url: string) {
 
 export type StoredRound = { refreshedOn: string; refreshedAt: string; cards: RoundCard[] }
 
+export function metaValue(key: string) {
+  const row = db().prepare('SELECT value FROM meta WHERE key = ?').get(key) as { value: string } | undefined
+  return row?.value || ''
+}
+
+export function setMeta(key: string, value: string) {
+  db().prepare(
+    'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+  ).run(key, value)
+}
+
 export function readRound(): StoredRound | null {
   const row = db().prepare('SELECT refreshed_on, refreshed_at, cards_json FROM rounds WHERE id = 1').get() as
     | { refreshed_on: string; refreshed_at: string; cards_json: string }

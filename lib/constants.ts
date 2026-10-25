@@ -55,6 +55,7 @@ export const DEFAULT_FEEDS: ReadonlyArray<readonly [string, string]> = [
   ['WFMY Greensboro', 'https://www.wfmynews2.com/feeds/syndication/rss/news/crime'],
   ['13News Now', 'https://www.13newsnow.com/feeds/syndication/rss/news/crime'],
   ['KENS San Antonio', 'https://www.kens5.com/feeds/syndication/rss/news/crime'],
+  ['Charged', 'https://news.google.com/rss/search?q=%22charged+with%22+when:3d&hl=en-US&gl=US&ceid=US:en'],
 ]
 
 export const GROK_MODELS = [
@@ -69,14 +70,16 @@ export const GROK_MODELS = [
 export const MODEL_IDS = new Set<string>(GROK_MODELS.map((model) => model.id))
 
 export const ROUND_SIZE = 10
+export const QUEUE_TARGET = 20
 export const CANDIDATE_SIZE = 16
 export const PER_FEED = 16
 export const QUEUE_TAKE = 40
 export const CHARGE_REOPEN = 16
+export const SHORT_REOPEN = 40
 export const FEED_SCAN = 80
 export const SCREEN_BATCH = 16
 export const ETHNICITY_CONCURRENCY = 4
-export const MAX_FEEDS = 40
+export const MAX_FEEDS = 48
 export const QUEUE_CAP = 200
 export const SCORE_CAP = 250_000
 export const RUM_CAP = 50_000

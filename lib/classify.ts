@@ -5,11 +5,12 @@ import {
   ETHNICITY_CONCURRENCY,
   ETHNICITY_SCHEMA,
   FEED_SCAN,
-  PER_FEED,
   PICK_SCHEMA,
   QUEUE_TAKE,
+  QUEUE_TARGET,
   ROUND_SIZE,
   SCREEN_BATCH,
+  SHORT_REOPEN,
 } from './constants'
 import { interleave, sameEvent } from './deal'
 import { HeadlineError } from './errors'
@@ -18,8 +19,8 @@ import { grok } from './grok'
 import { jobLog, jobSet, jobSnapshot, markRefreshFinished, markRefreshStarted } from './job'
 import { storiesFrom, storyCopy, takeUnseen, type GatheredStory } from './rss'
 import { markSeen, seenStatuses } from './seen'
-import { chargeHeadline, headlineKey } from './text'
-import { appendQueue, currentFeeds, currentPrompt, currentRefreshTime, readQueue, readRound, saveRound, takeRound } from './store'
+import { chargeHeadline, chargedStory, headlineKey } from './text'
+import { appendQueue, currentFeeds, currentPrompt, currentRefreshTime, metaValue, readQueue, readRound, saveRound, setMeta, takeRound } from './store'
 import { localISO } from './time'
 
 type PickedStory = GatheredStory & { event: string }
@@ -123,8 +124,9 @@ async function assignEthnicities(stories: { source: string; headline: string; co
 
 async function classifyOne(story: GatheredStory) {
   jobLog(`Article: ${story.source} — ${story.headline}`)
-  const copy = await storyCopy(story)
-  if (copy.length < 200) {
+  const page = await storyCopy(story)
+  const copy = page.length >= 200 ? page : `${story.headline}\n\n${story.rssCopy || page}`.trim()
+  if (copy.length < 40) {
     markSeen(story.headline, story.url, 'short')
     jobLog('Skipped. The article page did not include enough text.')
     return 'skip'
@@ -164,7 +166,9 @@ async function classifySpread(picked: PickedStory[], stopAt: number) {
   let pass = 0
   while (waiting.length) {
     if (readQueue().length >= stopAt) {
-      jobLog(`The queue can fill a round of ${ROUND_SIZE}. Later headlines in this pass were left for the next run.`)
+      jobLog(stopAt > ROUND_SIZE
+        ? `The queue has enough for more than one round. Later headlines were left for the next run.`
+        : `The queue can fill a round of ${ROUND_SIZE}. Later headlines in this pass were left for the next run.`)
       break
     }
     pass += 1
@@ -174,28 +178,25 @@ async function classifySpread(picked: PickedStory[], stopAt: number) {
   }
 }
 
-async function classifyDaily(deal: boolean) {
-  if (!(process.env.XAI_API_KEY || '').trim()) {
-    throw new HeadlineError('Add your xAI API key as XAI_API_KEY in a .env file in this folder, then restart the app.')
-  }
+async function searchHeadlines(stopAt: number) {
   const feeds = currentFeeds()
-  const scan = deal ? PER_FEED : FEED_SCAN
-  jobLog(deal
-    ? `Fetching ${feeds.length} crime RSS feeds, ${PER_FEED} headlines each.`
-    : `Fetching ${feeds.length} crime RSS feeds. Reading past already-checked headlines, up to ${QUEUE_TAKE} new ones each.`)
+  jobLog(`Fetching ${feeds.length} crime RSS feeds. Reading past already-checked headlines, up to ${QUEUE_TAKE} new ones from each.`)
   const fetched = await Promise.all(feeds.map(async (feed) => {
     try {
-      return await storiesFrom(feed, scan)
+      return await storiesFrom(feed, FEED_SCAN)
     } catch {
       return null
     }
   }))
+  const heldHeadlines: string[] = []
   const held = new Set<string>()
   for (const card of [...readQueue(), ...(readRound()?.cards || [])]) {
     const key = headlineKey(card.headline)
     if (key) held.add(key)
+    if (card.headline) heldHeadlines.push(card.headline)
   }
   let reopened = 0
+  let reopenedShort = 0
   const seenStory = (story: GatheredStory) => {
     const key = headlineKey(story.headline)
     if (key && held.has(key)) {
@@ -212,6 +213,10 @@ async function classifyDaily(deal: boolean) {
       reopened += 1
       return false
     }
+    if (statuses.every((status) => status === 'short') && reopenedShort < SHORT_REOPEN) {
+      reopenedShort += 1
+      return false
+    }
     return true
   }
   let passed = 0
@@ -221,60 +226,73 @@ async function classifyDaily(deal: boolean) {
       jobLog(`${feed.name}: the feed could not be read.`)
       return []
     }
-    const found = [...batch]
-    if (deal) {
-      jobLog(`${feed.name}: ${found.length} headlines.`)
-      return found
-    }
+    const found = batch.map((story) => {
+      const named = chargedStory(story.source, story.headline)
+      return named.source === story.source && named.headline === story.headline ? story : { ...story, ...named }
+    })
     const { fresh: unseen, checked } = takeUnseen(found, seenStory, QUEUE_TAKE)
     passed += checked
     jobLog(`${feed.name}: ${unseen.length} new. ${checked} already checked.`)
     return unseen
   })
-  const stories = interleave(groups, Math.max(1, feeds.length) * (deal ? PER_FEED : QUEUE_TAKE))
-  const fresh = deal ? stories.filter((story) => !seenStory(story)) : stories
-  const checked = deal ? stories.length - fresh.length : passed
-  jobLog(`Collected ${deal ? stories.length : fresh.length} headlines from ${feeds.length} feeds. ${checked} already checked. ${fresh.length} new.`)
-  if (!deal && reopened) jobLog(`Including ${reopened} arrest headlines that were screened before.`)
-  const picked: PickedStory[] = []
-  const prior: string[] = []
-  for (const card of [...readQueue(), ...(readRound()?.cards || [])]) {
-    const key = headlineKey(card.headline)
-    if (key) prior.push(key)
-  }
+  const fresh = interleave(groups, Math.max(1, feeds.length) * QUEUE_TAKE)
+  jobLog(`Collected ${fresh.length} headlines from ${feeds.length} feeds. ${passed} already checked. ${fresh.length} new.`)
+  if (reopened) jobLog(`Including ${reopened} arrest headlines that were screened before.`)
+  if (reopenedShort) jobLog(`Including ${reopenedShort} headlines whose pages were too short to read before.`)
+  const prior: string[] = [...held]
   if (!fresh.length) {
     jobLog('No new headlines. Grok was not called.')
-  } else {
-    jobLog('Screening the new headlines for distinct crimes.')
-    for (let start = 0; start < fresh.length; start += SCREEN_BATCH) {
-      const batch = fresh.slice(start, start + SCREEN_BATCH)
-      jobLog(`Screening headlines ${start + 1}–${start + batch.length}.`)
-      const chosen = await screenStories(batch, prior, batch.length)
-      const chosenKeys = new Set(chosen.map((story) => headlineKey(story.headline)))
-      for (const story of batch) {
-        if (!chosenKeys.has(headlineKey(story.headline))) {
-          markSeen(story.headline, story.url, chargeHeadline(story.headline) ? 'drop' : 'screened')
-        }
-      }
-      if (!chosen.length) {
-        jobLog('No new crimes in this batch.')
-        continue
-      }
-      for (const story of chosen) {
-        prior.push(story.event.toLowerCase())
-        picked.push(story)
-        jobLog(`Candidate: ${story.source} — ${story.headline}`)
+    return
+  }
+  jobLog('Screening the new headlines for distinct crimes.')
+  for (let start = 0; start < fresh.length; start += SCREEN_BATCH) {
+    if (readQueue().length >= stopAt) break
+    const batch = fresh.slice(start, start + SCREEN_BATCH)
+    jobLog(`Screening headlines ${start + 1}–${start + batch.length}.`)
+    const chosen = await screenStories(batch, prior, batch.length)
+    const chosenKeys = new Set(chosen.map((story) => headlineKey(story.headline)))
+    for (const story of batch) {
+      if (!chosenKeys.has(headlineKey(story.headline))) {
+        markSeen(story.headline, story.url, chargeHeadline(story.headline) ? 'drop' : 'screened')
       }
     }
+    const ready: PickedStory[] = []
+    for (const story of chosen) {
+      if (heldHeadlines.some((headline) => sameEvent(story.headline, headline))) {
+        markSeen(story.headline, story.url, 'queued')
+        jobLog('Same incident as a story already queued.')
+        continue
+      }
+      heldHeadlines.push(story.headline)
+      prior.push(story.event.toLowerCase())
+      ready.push(story)
+      jobLog(`Candidate: ${story.source} — ${story.headline}`)
+    }
+    if (!ready.length) {
+      jobLog('No new crimes in this batch.')
+      continue
+    }
+    jobLog(`Reading ${ready.length} ${ready.length === 1 ? 'candidate' : 'candidates'}. Confirmed articles join the queue.`)
+    await classifySpread(ready, stopAt)
   }
-  if (picked.length) {
-    jobLog(`Reading ${picked.length} candidates. Confirmed articles join the queue.`)
-    await classifySpread(picked, ROUND_SIZE)
-  } else if (fresh.length) {
-    jobLog('No new crimes to classify.')
+}
+
+async function classifyDaily(deal: boolean) {
+  if (!(process.env.XAI_API_KEY || '').trim()) {
+    throw new HeadlineError('Add your xAI API key as XAI_API_KEY in a .env file in this folder, then restart the app.')
+  }
+  const stopAt = QUEUE_TARGET
+  if (readQueue().length >= stopAt) {
+    jobLog(`The queue already has ${readQueue().length}, enough for more than one round.`)
+  } else {
+    await searchHeadlines(stopAt)
   }
   if (!deal) {
     jobLog(`Queue has ${readQueue().length}. Today’s round was left as it is.`)
+    return
+  }
+  if (readQueue().length < ROUND_SIZE) {
+    jobLog(`Queue has ${readQueue().length}. A round needs ${ROUND_SIZE} confirmed headlines, so today’s round was left as it is.`)
     return
   }
   const { dealt, rest } = takeRound()
@@ -309,7 +327,11 @@ export async function maybeDaily() {
   const scheduled = new Date(now)
   scheduled.setHours(hour, minute, 0, 0)
   if (now < scheduled) return
-  if (readRound()?.refreshedOn === localISO(now)) return
+  const today = localISO(now)
+  if (metaValue('deal_on') === today) return
+  const round = readRound()
+  if (round?.refreshedOn === today && round.cards.length >= ROUND_SIZE) return
   if (jobSnapshot().running) return
-  startRefresh()
+  setMeta('deal_on', today)
+  if (!startRefresh()) setMeta('deal_on', '')
 }

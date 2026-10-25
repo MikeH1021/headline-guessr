@@ -1,3 +1,5 @@
+import { feedName } from './feeds'
+
 export function unescapeHtml(value: string) {
   return value
     .replace(/&#(\d+);/g, (_, digits: string) => {
@@ -19,6 +21,16 @@ export function unescapeHtml(value: string) {
 
 export function headlineKey(headline: string) {
   return headline.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 240)
+}
+
+export function chargedStory(source: string, headline: string) {
+  if (source !== 'Charged') return { source, headline }
+  const match = /^(.*\S)\s+[-–—|]\s+([^|–—\n-]{2,40})$/.exec(headline.trim())
+  if (!match) return { source, headline }
+  const title = match[1].trim()
+  const name = feedName(match[2])
+  if (!name || title.length < 16) return { source, headline }
+  return { source: name, headline: title }
 }
 
 export function chargeHeadline(headline: string) {
