@@ -138,11 +138,13 @@
         var audio = resume();
         if (!audio) return;
         var now = audio.currentTime;
-        var step = Math.max(2, Math.min(8, count | 0));
-        var freq = 880 + (step - 2) * 110;
-        voice(audio, now + 0.24, freq, 0.14, 'sine', 0.055);
-        if (step >= 3) voice(audio, now + 0.34, Math.min(2400, freq * 1.25), 0.16, 'triangle', 0.04);
-        if (step >= 5) knock(audio, now + 0.34, 0.03, 0.05, 2600);
+        // Continues right()'s C-E-G chime: C6, then E6 G6 C7 E7 G7 C8.
+        var ladder = [1318, 1568, 2093, 2637, 3136, 4186];
+        var index = Math.max(0, Math.min(ladder.length - 1, (count | 0) - 2));
+        var top = ladder[index];
+        var quiet = index >= 4;
+        voice(audio, now + 0.24, top, 0.18, 'sine', quiet ? 0.032 : 0.048);
+        if (index >= 1) voice(audio, now + 0.24, ladder[index - 1], 0.18, 'sine', quiet ? 0.02 : 0.028);
     }
 
     function best() {
