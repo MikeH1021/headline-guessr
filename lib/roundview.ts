@@ -2,7 +2,7 @@ import { ETHNICITIES } from './constants'
 import { HeadlineError } from './errors'
 import { jobSnapshot } from './job'
 import { ordinal, rankForScore } from './scoring'
-import { currentRefreshTime, readArchive, readRound, roundStats, type StoredRound } from './store'
+import { currentRefreshTime, publishQueuedRound, readArchive, readRound, roundStats, type StoredRound } from './store'
 import { localDateTimeISO, localISO, roundIsCurrent, roundLabel } from './time'
 import type { LastResult, SessionData } from './types'
 
@@ -17,6 +17,7 @@ export function nextRoundAt() {
 }
 
 export function liveRound(now = new Date()) {
+  publishQueuedRound(now)
   const round = readRound()
   if (!round?.cards.length) return null
   return roundIsCurrent(round.refreshedOn, now, currentRefreshTime()) ? round : null

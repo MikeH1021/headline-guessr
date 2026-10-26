@@ -4,10 +4,11 @@ import { db } from './db'
 import { dealQueue, sameEvent } from './deal'
 import { canonicalEthnicity } from './ethnicity'
 import { defaultFeeds, feedName, feedUrl, parseFeeds, publicFeedUrl, validRefreshTime, type Feed } from './feeds'
+import { jobSnapshot } from './job'
 import { percentileRank } from './scoring'
 import { markSeen } from './seen'
 import { articleHref, cleanTitle, headlineKey, preferArticleUrl } from './text'
-import { localISO } from './time'
+import { localISO, roundIsCurrent } from './time'
 import type { LastResult, QueueCard, RoundCard, SessionData } from './types'
 
 type SettingsRow = {
@@ -297,6 +298,27 @@ export function takeRound() {
     const { dealt, rest } = dealQueue(queue, ROUND_SIZE)
     replaceQueue(rest)
     return { dealt, rest }
+  })()
+}
+
+export function publishQueuedRound(now = new Date()) {
+  if (jobSnapshot().running) return false
+  const refreshTime = currentRefreshTime()
+  return db().transaction(() => {
+    const current = readRound()
+    if (current?.cards.length && roundIsCurrent(current.refreshedOn, now, refreshTime)) return false
+    collapseQueue()
+    const queue = readQueue()
+    if (queue.length < ROUND_SIZE) return false
+    const { dealt, rest } = dealQueue(queue, ROUND_SIZE)
+    if (dealt.length < ROUND_SIZE) {
+      replaceQueue(queue)
+      return false
+    }
+    replaceQueue(rest)
+    saveRound(dealt, now)
+    for (const card of dealt) markSeen(card.headline, card.url || '', 'round')
+    return true
   })()
 }
 

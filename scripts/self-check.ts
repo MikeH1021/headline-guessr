@@ -303,7 +303,7 @@ async function checkImport() {
   assert.throws(() => buildRound(), (err: unknown) => err instanceof Error && err.message === 'Today’s round is not ready yet.')
   assert.equal(readRound()?.cards[0].url, 'https://example.com/robbery')
 
-  const { saveRound, readArchive, listArchives, addHeadline, useQueued, dropRoundCard, readQueue: queueNow, applyCardUrls } = await import('../lib/store')
+  const { saveRound, readArchive, listArchives, addHeadline, useQueued, dropRoundCard, readQueue: queueNow, applyCardUrls, publishQueuedRound } = await import('../lib/store')
   const { hasSeen, markSeen, articleLink } = await import('../lib/seen')
   saveRound(
     [{ source: 'CBS', headline: 'First saved robbery downtown', ethnicity: 'White', url: 'javascript:alert(1)' }],
@@ -391,6 +391,36 @@ async function checkImport() {
   assert.equal(readArchive('2026-10-22')?.cards[0].url, 'https://www.14news.com/story')
   applyCardUrls('2026-10-22', new Map([[headlineKey('Decode this charge'), storedGoogle]]))
   assert.equal(readArchive('2026-10-22')?.cards[0].url, 'https://www.14news.com/story')
+  const { localISO } = await import('../lib/time')
+  const queuedHeads = [
+    'Oakland marina jewel heist alpha',
+    'Denver canyon cattle rustle bravo',
+    'Tampa harbor cargo piracy charlie',
+    'Boise granite payroll stickup delta',
+    'Reno silver vault burglary echo',
+    'Maine lobster dock arson foxtrot',
+    'Tulsa oilfield payroll bandit golf',
+    'Fresno almond warehouse caper hotel',
+    'Butte copper payroll ambush india',
+    'Nome ivory depot burglary juliet',
+    'Laredo border fuel theft kilo',
+    'Provo canyon ransom drop lima',
+  ]
+  for (const headline of queuedHeads) {
+    assert.equal(addHeadline('queue', {
+      source: 'CBS',
+      headline,
+      ethnicity: 'White',
+      url: `https://example.com/${headline.split(' ')[0].toLowerCase()}`,
+    }, false).startsWith('Added to the queue.'), true)
+  }
+  const queuedBefore = queueNow().length
+  assert.equal(publishQueuedRound(), true)
+  assert.equal(readRound()?.refreshedOn, localISO())
+  assert.equal(readRound()?.cards.length, 10)
+  assert.equal(queueNow().length, queuedBefore - 10)
+  assert.equal(readArchive('2026-10-22')?.cards[0].headline, 'Decode this charge')
+  assert.equal(publishQueuedRound(), false)
 
   const session = await import('../lib/xai-session')
   const { XAI_OAUTH_CLIENT_ID } = await import('../lib/xai-oauth')

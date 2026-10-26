@@ -3,8 +3,8 @@ import { BootScripts } from '@/components/boot-scripts'
 import { adminAuthed } from '@/lib/admin-auth'
 import { ETHNICITIES, FEED_SCAN, GROK_MODELS, QUEUE_TAKE, QUEUE_TARGET, ROUND_SIZE } from '@/lib/constants'
 import { rumPublic, rumSummary } from '@/lib/rum'
-import { roundIsCurrent, roundLabel } from '@/lib/time'
-import { collapseQueue, currentFeeds, currentModel, currentPrompt, currentRefreshTime, queuePublic, readQueue, readRound } from '@/lib/store'
+import { roundIsCurrent } from '@/lib/time'
+import { collapseQueue, currentFeeds, currentModel, currentPrompt, currentRefreshTime, publishQueuedRound, queuePublic, readQueue, readRound } from '@/lib/store'
 import { articleHref, headlineKey } from '@/lib/text'
 import { oauthPublic, pollPending } from '@/lib/xai-session'
 
@@ -94,13 +94,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const queueNotice = removed
     ? `Removed ${removed} repeated ${removed === 1 ? 'incident' : 'incidents'} from the queue.`
     : ''
+  publishQueuedRound()
   const queue = queuePublic(readQueue())
   const round = readRound()
-  const roundCards = round?.cards || []
   const model = currentModel()
   const prompt = currentPrompt()
   const refreshTime = currentRefreshTime()
   const roundLive = round ? roundIsCurrent(round.refreshedOn, new Date(), refreshTime) : false
+  const roundCards = roundLive && round ? round.cards : []
   const rum = rumPublic(rumSummary())
   let grok = await oauthPublic()
   if (grok.pending) grok = await pollPending()
@@ -121,14 +122,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <p>The daily round is 10 headlines. Confirmed articles wait in the queue, and the round takes one source at a time.</p>
         {(notice || queueNotice) && <p className="message">{notice || queueNotice}</p>}
         <details className="drawer" open>
-          <summary>{round && !roundLive ? roundLabel(round.refreshedOn).label : 'Today’s round'}</summary>
+          <summary>Today’s round</summary>
           <p>
-            {round
-              ? roundLive
-                ? `${roundCards.length} headlines saved ${round.refreshedAt}.`
-                : `${roundCards.length} headlines from ${round.refreshedAt}. That day is over, so it is no longer today’s round.`
-              : 'No round is saved yet.'}{' '}
-            Remove one, or move a queued headline in, without running a refresh.
+            {roundLive && round
+              ? `${roundCards.length} headlines saved ${round.refreshedAt}. Remove one, or move a queued headline in, without running a refresh.`
+              : `Today’s round has not been dealt. The previous edition stays in Earlier rounds. Confirmed headlines stay in the queue until ${ROUND_SIZE} are ready.`}
           </p>
           <p className="note" hidden={roundCards.length > 0}>Today’s round is empty.</p>
           <ul className="queue-list">

@@ -21,7 +21,7 @@ import { jobLog, jobSet, jobSnapshot, markRefreshFinished, markRefreshStarted } 
 import { storiesFrom, storyCopy, takeUnseen, type GatheredStory } from './rss'
 import { markSeen, seenStatuses } from './seen'
 import { articleHost, chargeFirst, chargeHeadline, chargedStory, headlineKey } from './text'
-import { appendQueue, currentFeeds, currentPrompt, currentRefreshTime, metaValue, readQueue, readRound, saveRound, setMeta, takeRound } from './store'
+import { appendQueue, currentFeeds, currentPrompt, currentRefreshTime, metaValue, publishQueuedRound, readQueue, readRound, saveRound, setMeta, takeRound } from './store'
 import { localISO } from './time'
 
 type PickedStory = GatheredStory & { event: string }
@@ -336,6 +336,10 @@ export async function maybeDaily() {
   scheduled.setHours(hour, minute, 0, 0)
   if (now < scheduled) return
   const today = localISO(now)
+  if (publishQueuedRound(now)) {
+    setMeta('deal_on', today)
+    return
+  }
   if (metaValue('deal_on') === today) return
   const round = readRound()
   if (round?.refreshedOn === today && round.cards.length >= ROUND_SIZE) return
