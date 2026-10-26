@@ -518,6 +518,8 @@ button.quiet.stats-open {
     font-variant-numeric: tabular-nums;
 }
 
+.pace-live.is-under { color: var(--yes); }
+
 .tally {
     grid-column: 3;
     grid-row: 1;
@@ -1205,6 +1207,8 @@ html.js .finish-fallback { display: none; }
     font-variant-numeric: tabular-nums;
 }
 
+.stamp-pace.is-faster { color: var(--yes); animation: tally-pop 0.42s 0.15s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 .stamp-run,
 .stamp-best {
     position: relative;
@@ -1358,6 +1362,8 @@ html.js .finish-fallback { display: none; }
 }
 
 .page-home .pace { margin: -10px 0 16px; }
+
+.pace.is-faster { color: var(--yes); }
 
 .earlier { margin-top: 8px; }
 

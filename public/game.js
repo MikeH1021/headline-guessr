@@ -14,6 +14,7 @@
     var chaseNode = null;
     var chaseNoted = false;
     var chaseSlipped = false;
+    var ghostMs = 0;
     var count = document.getElementById('count');
     var tally = document.getElementById('tally');
     var pips = Array.prototype.slice.call(document.querySelectorAll('.pip'));
@@ -86,9 +87,11 @@
         var node = document.getElementById('pace-live');
         var saved = readClock();
         if (!node || !saved.runningSince || !clockHere(saved)) return;
-        var seconds = Math.max(0, Math.floor(liveMs(saved) / 1000));
+        var ms = liveMs(saved);
+        var seconds = Math.max(0, Math.floor(ms / 1000));
         node.hidden = false;
         node.textContent = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+        node.classList.toggle('is-under', index === total - 1 && ahead(ms) >= 1);
     }
 
     function startClock() {
@@ -100,13 +103,29 @@
         if (!clockTimer) clockTimer = window.setInterval(paintLive, 250);
     }
 
+    function readGhost() {
+        try {
+            var data = JSON.parse(localStorage.getItem('hg-career') || '{}');
+            var row = data && data.days ? data.days[roundDay] : null;
+            var ms = Number(row && row.ms);
+            var savedTotal = Number(row && row.total);
+            if (savedTotal === total && ms >= 1000) ghostMs = ms;
+        } catch (err) {}
+    }
+
+    function ahead(ms) {
+        if (!(ghostMs >= 1000) || !(ms > 0) || ms >= ghostMs) return 0;
+        var gap = Math.round(ghostMs / 1000) - Math.round(ms / 1000);
+        return gap >= 1 ? gap : 0;
+    }
+
     function storePace() {
         var saved = readClock();
         if (saved.day !== roundDay) return;
         var ms = liveMs(saved);
         if (!(ms > 0)) return;
         try {
-            sessionStorage.setItem('hg-pace', JSON.stringify({ day: roundDay, ms: ms }));
+            sessionStorage.setItem('hg-pace', JSON.stringify({ day: roundDay, ms: ms, faster: ahead(ms) }));
         } catch (err) {}
     }
 
@@ -423,9 +442,19 @@
                 var seconds = totalSeconds % 60;
                 var paceLine = document.createElement('p');
                 paceLine.className = 'stamp-pace';
-                paceLine.textContent = minutes > 0
+                var paceText = minutes > 0
                     ? 'in ' + minutes + 'm ' + String(seconds).padStart(2, '0') + 's'
                     : 'in ' + seconds + 's';
+                var faster = Number(pace.faster) || 0;
+                if (faster >= 1) {
+                    paceLine.classList.add('is-faster');
+                    var fastMin = Math.floor(faster / 60);
+                    var fastSec = faster % 60;
+                    paceText += fastMin > 0
+                        ? ' · ' + fastMin + 'm ' + String(fastSec).padStart(2, '0') + 's faster'
+                        : ' · ' + fastSec + 's faster';
+                }
+                paceLine.textContent = paceText;
                 stamp.appendChild(paceLine);
             }
         } catch (err) {}
@@ -565,6 +594,7 @@
         card.querySelector('.lock').click();
     });
 
+    readGhost();
     readPrior();
     paintChase();
     updateProgress();

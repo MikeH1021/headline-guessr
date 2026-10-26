@@ -352,10 +352,17 @@
     }
 
     var entry = day ? (loadCareer().days || {})[day] : null;
+    var paceSaved = {};
+    try { paceSaved = JSON.parse(sessionStorage.getItem('hg-pace') || '{}'); } catch (err) { paceSaved = {}; }
     if (entry && entry.ms) {
+        var faster = paceSaved.day === day ? (Number(paceSaved.faster) || 0) : 0;
         document.querySelectorAll('.pace').forEach(function (node) {
             node.hidden = false;
             node.textContent = 'in ' + formatPace(entry.ms);
+            if (faster >= 1) {
+                node.classList.add('is-faster');
+                node.textContent += ' · ' + formatPace(faster * 1000) + ' faster';
+            }
         });
     }
     if (document.body.classList.contains('page-results')) {
