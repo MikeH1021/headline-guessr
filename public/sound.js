@@ -102,6 +102,16 @@
         voice(audio, now + 0.02, 520, 0.11, 'triangle', 0.07, 780);
     }
 
+    function last() {
+        if (muted()) return;
+        var audio = resume();
+        if (!audio) return;
+        var now = audio.currentTime;
+        knock(audio, now, 0.04, 0.16, 1400);
+        voice(audio, now, 880, 0.09, 'triangle', 0.07);
+        voice(audio, now + 0.09, 1318, 0.16, 'sine', 0.06);
+    }
+
     function miss() {
         if (muted()) return;
         var audio = resume();
@@ -262,6 +272,7 @@
         muted: muted,
         tick: tick,
         next: next,
+        last: last,
         miss: miss,
         right: right,
         straight: straight,

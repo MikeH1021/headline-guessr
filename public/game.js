@@ -130,10 +130,21 @@
     }
 
     function updateProgress() {
-        if (count) count.textContent = (index + 1) + ' of ' + total;
+        var last = index === total - 1;
+        if (count) {
+            var label = last ? 'Last' : (index + 1) + ' of ' + total;
+            var changed = count.textContent !== label;
+            count.textContent = label;
+            if (last && changed) {
+                count.classList.remove('is-last');
+                void count.offsetWidth;
+            }
+            count.classList.toggle('is-last', last);
+        }
         pips.forEach(function (pip, pipIndex) {
             pip.classList.toggle('is-done', pipIndex < index);
             pip.classList.toggle('is-current', pipIndex === index);
+            pip.classList.toggle('is-last', last && pipIndex === index && !pip.classList.contains('is-right') && !pip.classList.contains('is-wrong'));
         });
     }
 
@@ -349,7 +360,10 @@
         lock.textContent = index === total - 1 ? 'See rank' : 'Next';
         lock.classList.toggle('is-right', correct);
         lock.classList.toggle('is-wrong', !correct);
-        if (pips[index]) pips[index].classList.add(correct ? 'is-right' : 'is-wrong');
+        if (pips[index]) {
+            pips[index].classList.add(correct ? 'is-right' : 'is-wrong');
+            pips[index].classList.remove('is-last');
+        }
         paintRun();
         if (lock.scrollIntoView) lock.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
         var wrap = document.querySelector('.stage-wrap');
@@ -393,7 +407,11 @@
         var current = cards[index];
         var upcoming = cards[index + 1];
         if (!upcoming) return;
-        if (window.HGSound) HGSound.next();
+        var landingLast = index + 1 === total - 1;
+        if (window.HGSound) {
+            if (landingLast && HGSound.last) HGSound.last();
+            else HGSound.next();
+        }
         current.classList.add('is-locked');
         current.classList.remove('is-active');
         current.classList.add('is-leaving');

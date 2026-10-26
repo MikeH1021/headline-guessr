@@ -233,6 +233,12 @@ button.quiet.stats-open {
     font-variant-numeric: tabular-nums;
 }
 
+.count.is-last {
+    color: var(--accent);
+    transform-origin: center;
+    animation: tally-pop 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .home-main {
     flex: 1;
     display: flex;
@@ -486,6 +492,12 @@ button.quiet.stats-open {
     color: var(--paper);
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 16%, transparent);
     animation: pip-glow 0.7s ease-out;
+}
+
+.pip.is-current.is-last {
+    background: var(--accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 32%, transparent);
+    animation-name: pip-last;
 }
 
 .pip.is-right,
@@ -2383,6 +2395,11 @@ html.js .finish-fallback { display: none; }
 
 @keyframes pip-glow {
     0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ink) 28%, transparent); }
+    100% { box-shadow: 0 0 0 7px transparent; }
+}
+
+@keyframes pip-last {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
     100% { box-shadow: 0 0 0 7px transparent; }
 }
 
