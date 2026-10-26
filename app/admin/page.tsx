@@ -4,7 +4,7 @@ import { adminAuthed } from '@/lib/admin-auth'
 import { ETHNICITIES, FEED_SCAN, GROK_MODELS, QUEUE_TAKE, QUEUE_TARGET, ROUND_SIZE } from '@/lib/constants'
 import { rumPublic, rumSummary } from '@/lib/rum'
 import { collapseQueue, currentFeeds, currentModel, currentPrompt, currentRefreshTime, queuePublic, readQueue, readRound } from '@/lib/store'
-import { headlineKey } from '@/lib/text'
+import { articleHref, headlineKey } from '@/lib/text'
 import { oauthPublic, pollPending } from '@/lib/xai-session'
 
 export const metadata = { title: 'Admin — Headline Guessr' }
@@ -19,6 +19,21 @@ const formQuiet = {
 
 function plural(count: number, word: string) {
   return `${count} ${word}${count === 1 ? '' : word === 'finish' ? 'es' : 's'}`
+}
+
+function DeskLine({ source, headline, ethnicity, url }: { source: string; headline: string; ethnicity: string; url?: string }) {
+  const href = articleHref(url)
+  const text = `${headline} — ${ethnicity}`
+  return (
+    <>
+      <span className="feed-name">{source}</span>
+      {href ? (
+        <a className="feed-url" href={href} target="_blank" rel="noopener noreferrer">{text}</a>
+      ) : (
+        <span className="feed-url">{text}</span>
+      )}
+    </>
+  )
 }
 
 function RumStats({ rum }: { rum: ReturnType<typeof rumPublic> }) {
@@ -111,8 +126,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             {roundCards.map((card) => (
               <li key={headlineKey(card.headline)}>
                 <form method="post" action="/admin/post" {...formQuiet}>
-                  <span className="feed-name">{card.source}</span>
-                  <span className="feed-url">{card.headline} — {card.ethnicity}</span>
+                  <DeskLine source={card.source} headline={card.headline} ethnicity={card.ethnicity} url={card.url} />
                   <input type="hidden" name="queue_key" value={headlineKey(card.headline)} />
                   <button className="btn btn-ghost" type="submit" name="action" value="drop_round">Remove</button>
                 </form>
@@ -128,8 +142,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             {queue.map((item) => (
               <li key={item.key}>
                 <form method="post" action="/admin/post" {...formQuiet}>
-                  <span className="feed-name">{item.source}</span>
-                  <span className="feed-url">{item.headline} — {item.ethnicity}</span>
+                  <DeskLine source={item.source} headline={item.headline} ethnicity={item.ethnicity} url={item.url} />
                   <input type="hidden" name="queue_key" value={item.key} />
                   <button className="btn btn-ghost" type="submit" name="action" value="use_queue">Use today</button>
                   <button className="btn btn-ghost" type="submit" name="action" value="drop_queue">Remove</button>
@@ -146,7 +159,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 {ETHNICITIES.map((label) => <option key={label} value={label}>{label}</option>)}
               </select>
             </label>
-            <label>URL<input type="url" name="url" maxLength={300} placeholder="https://example.com/story" /></label>
+            <label>URL<input type="url" name="url" maxLength={4000} placeholder="https://example.com/story" /></label>
             <div className="split-actions">
               <button className="btn" type="submit" name="action" value="add_queue">Add to queue</button>
               <button className="btn btn-ghost" type="submit" name="action" value="add_round">Add to today’s round</button>
@@ -253,7 +266,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <div id="refresh-log"></div>
           <ul id="ready-list" className="ready-list"></ul>
         </details>
-        <BootScripts src="/admin.js?v=3" />
+        <BootScripts src="/admin.js?v=4" />
       </main>
     </div>
   )

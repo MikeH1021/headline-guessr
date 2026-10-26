@@ -93,6 +93,20 @@
         if (nearBottom) log.scrollTop = log.scrollHeight;
     }
 
+    function safeHref(value) {
+        if (typeof value !== 'string') return '';
+        var raw = value.trim();
+        if (!raw || raw.length > 4000 || !/^https?:\/\/\S+$/.test(raw)) return '';
+        try {
+            var parsed = new URL(raw);
+            if (parsed.username || parsed.password) return '';
+            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+            return parsed.href;
+        } catch (err) {
+            return '';
+        }
+    }
+
     function paintQueue(items) {
         var list = document.getElementById('queue-list');
         var empty = document.getElementById('queue-empty');
@@ -109,9 +123,15 @@
             var name = document.createElement('span');
             name.className = 'feed-name';
             name.textContent = item.source;
-            var detail = document.createElement('span');
+            var href = safeHref(item.url);
+            var detail = document.createElement(href ? 'a' : 'span');
             detail.className = 'feed-url';
             detail.textContent = item.headline + ' — ' + item.ethnicity;
+            if (href) {
+                detail.href = href;
+                detail.target = '_blank';
+                detail.rel = 'noopener noreferrer';
+            }
             var key = document.createElement('input');
             key.type = 'hidden';
             key.name = 'queue_key';
@@ -155,7 +175,18 @@
             if (!data.running && data.cards && data.cards.length) {
                 data.cards.forEach(function (card) {
                     var row = document.createElement('li');
-                    row.textContent = card.source + ': ' + card.headline + ' — ' + card.ethnicity;
+                    var label = card.source + ': ' + card.headline + ' — ' + card.ethnicity;
+                    var href = safeHref(card.url);
+                    if (href) {
+                        var link = document.createElement('a');
+                        link.href = href;
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                        link.textContent = label;
+                        row.appendChild(link);
+                    } else {
+                        row.textContent = label;
+                    }
                     readyList.appendChild(row);
                 });
             }

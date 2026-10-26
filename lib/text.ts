@@ -89,6 +89,16 @@ export function articleHref(value: unknown) {
   }
 }
 
+export function articleHost(href: string) {
+  try {
+    const host = new URL(href).hostname.replace(/^www\./, '')
+    if (!host || host === 'news.google.com') return ''
+    return host
+  } catch {
+    return ''
+  }
+}
+
 export function storyUrl(url: string, base: string) {
   let value = unescapeHtml((url || '').trim())
   if (value.startsWith('//')) value = `https:${value}`

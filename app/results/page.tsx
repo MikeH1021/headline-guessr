@@ -5,7 +5,7 @@ import { playableDay, presentResult, refreshResult, resultForDay, roundContext }
 import { currentSession } from '@/lib/session'
 import { articleUrls } from '@/lib/seen'
 import { readArchive, readRound, saveSession } from '@/lib/store'
-import { articleHref, headlineKey, isBanner } from '@/lib/text'
+import { articleHost, articleHref, headlineKey, isBanner } from '@/lib/text'
 
 export const metadata = { title: 'Results — Headline Guessr' }
 
@@ -44,9 +44,6 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const hrefFor = (story: { headline: string; url?: string }) => {
     const key = headlineKey(story.headline)
     return articleHref(story.url) || (key && savedUrls.get(key)) || (key && remembered.get(key)) || ''
-  }
-  const hostFor = (href: string) => {
-    try { return new URL(href).hostname.replace(/^www\./, '') } catch { return '' }
   }
   const again = day ? `/game?day=${day}` : '/game'
   const perfect = result.score === total && total > 0
@@ -124,7 +121,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
             const story = stories[index]
             const right = guess === answer
             const href = story ? hrefFor(story) : ''
-            const host = href ? hostFor(href) : ''
+            const host = href ? articleHost(href) : ''
             return (
               <li key={index} className={`review ${right ? 'is-right' : 'is-wrong'}`} style={{ animationDelay: `${index * 50}ms` }}>
                 {story && (
@@ -136,7 +133,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                           href={href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          aria-label={`${story.headline}. ${host}. Opens in a new tab.`}
+                          aria-label={host ? `${story.headline}. ${host}. Opens in a new tab.` : `${story.headline}. Opens in a new tab.`}
                         >
                           {story.headline}
                           {host && <span className="article-host">{host}</span>}

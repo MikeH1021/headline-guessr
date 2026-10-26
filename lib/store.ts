@@ -223,12 +223,16 @@ function replaceQueue(rows: QueueCard[]) {
 }
 
 export function queuePublic(rows: QueueCard[]) {
-  return rows.map((item) => ({
-    source: item.source,
-    headline: item.headline,
-    ethnicity: item.ethnicity,
-    key: headlineKey(item.headline),
-  }))
+  return rows.map((item) => {
+    const url = articleHref(item.url)
+    return {
+      source: item.source,
+      headline: item.headline,
+      ethnicity: item.ethnicity,
+      key: headlineKey(item.headline),
+      ...(url ? { url } : {}),
+    }
+  })
 }
 
 export function collapseQueue() {
@@ -343,11 +347,11 @@ export function addHeadline(
   const source = feedName(fields.source)
   const headline = cleanTitle(fields.headline)
   const ethnicity = canonicalEthnicity(fields.ethnicity)
-  const url = fields.url.trim() ? feedUrl(fields.url) : ''
+  const url = fields.url.trim() ? articleHref(fields.url) : ''
   if (!source) return 'Enter a source name.'
   if (!headline) return 'Enter a headline.'
   if (!ethnicity) return 'Choose an ethnicity.'
-  if (fields.url.trim() && !url) return 'That URL needs to start with http:// or https://.'
+  if (fields.url.trim() && !url) return 'That URL needs to be an http or https link.'
   const key = headlineKey(headline)
   return db().transaction(() => {
     if (target === 'queue') {

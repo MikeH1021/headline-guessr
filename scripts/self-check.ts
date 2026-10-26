@@ -20,7 +20,7 @@ import {
 } from '../lib/xai-oauth'
 import { articleText, storiesFromRss, takeUnseen } from '../lib/rss'
 import { DEFAULT_FEEDS, QUEUE_TARGET, ROUND_SIZE, SHORT_REOPEN } from '../lib/constants'
-import { articleHref, chargeFirst, chargeHeadline, chargedStory, headlineKey, seenArticleUrl } from '../lib/text'
+import { articleHost, articleHref, chargeFirst, chargeHeadline, chargedStory, headlineKey, seenArticleUrl } from '../lib/text'
 
 assert.equal(pythonRound(12.5), 12)
 assert.equal(pythonRound(13.5), 14)
@@ -130,6 +130,9 @@ assert.equal(publicFeedUrl('https://user:pass@example.com/feed'), '')
 assert.equal(articleHref('https://example.com/story'), 'https://example.com/story')
 assert.equal(articleHref('javascript:alert(1)'), '')
 assert.equal(articleHref('https://user:pass@example.com/story'), '')
+assert.equal(articleHost('https://www.example.com/story'), 'example.com')
+assert.equal(articleHost('https://chicago.suntimes.com/crime/x'), 'chicago.suntimes.com')
+assert.equal(articleHost('https://news.google.com/rss/articles/abc'), '')
 assert.equal(DEFAULT_FEEDS.length, 44)
 assert.deepEqual(DEFAULT_FEEDS.slice(-4).map(([name]) => name), ['Charged', 'Murder charges', 'Attempted murder', 'Kidnapping'])
 assert.equal(publicFeedUrl(DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1]), DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1])
@@ -305,6 +308,29 @@ async function checkImport() {
   assert.equal(useQueued(queued[0] ? queued[0].headline.toLowerCase() : '', false).includes('Moved'), true)
   assert.equal(readArchive('2026-10-21')?.cards.length, 2)
   assert.equal(queueNow().length, 0)
+  const longUrl = `https://news.google.com/rss/articles/${'a'.repeat(280)}`
+  assert.ok(longUrl.length > 300)
+  assert.equal(feedUrl(longUrl), '')
+  assert.equal(articleHref(longUrl), longUrl)
+  assert.equal(
+    addHeadline('queue', {
+      source: 'KMOV',
+      headline: 'Man charged with murder after the long article link',
+      ethnicity: 'White',
+      url: longUrl,
+    }, false),
+    'Added to the queue. 1 waiting.',
+  )
+  assert.equal(queueNow()[0]?.url, longUrl)
+  assert.equal(
+    addHeadline('queue', {
+      source: 'KMOV',
+      headline: 'Man charged with murder after a bad link',
+      ethnicity: 'White',
+      url: 'javascript:alert(1)',
+    }, false),
+    'That URL needs to be an http or https link.',
+  )
   const added = readArchive('2026-10-21')?.cards.find((card) => card.headline.includes('harbor'))
   assert.equal(added?.ethnicity, 'Hispanic')
   assert.equal(added?.url, 'https://example.com/harbor')
