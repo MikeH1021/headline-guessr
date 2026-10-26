@@ -194,16 +194,24 @@
             chaseNode.hidden = true;
             return;
         }
+        var revealed = cards[index] && cards[index].classList.contains('is-revealed');
+        var left = revealed ? total - index - 1 : total - index;
         var swept = holding && correctCount === total;
         var beaten = !holding && correctCount > prior;
-        var label = swept ? 'Sweep held' : (beaten ? 'New best' : (holding ? 'Hold the sweep' : 'Beat ' + prior));
+        var closing = !holding && !beaten && correctCount === prior && left >= 1;
+        if (!holding && !beaten && correctCount + left <= prior) {
+            chaseNode.hidden = true;
+            return;
+        }
+        var label = swept ? 'Sweep held' : (beaten ? 'New best' : (closing ? 'One away' : (holding ? 'Hold the sweep' : 'Beat ' + prior)));
         if (chaseNode.textContent !== label) {
             chaseNode.hidden = false;
             chaseNode.textContent = label;
-            if (swept || beaten) {
-                chaseNode.classList.remove('is-beat');
+            chaseNode.classList.remove('is-beat');
+            chaseNode.classList.remove('is-close');
+            if (swept || beaten || closing) {
                 void chaseNode.offsetWidth;
-                chaseNode.classList.add('is-beat');
+                chaseNode.classList.add(swept || beaten ? 'is-beat' : 'is-close');
             }
         }
         if ((swept || beaten) && !chaseNoted) {

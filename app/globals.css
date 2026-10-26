@@ -570,10 +570,14 @@ button.quiet.stats-open {
     text-transform: uppercase;
 }
 
-.chase.is-beat {
-    color: var(--yes);
+.chase.is-beat,
+.chase.is-close {
     animation: tally-pop 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+.chase.is-beat { color: var(--yes); }
+
+.chase.is-close { color: var(--accent); }
 
 @media (hover: none), (pointer: coarse) {
     .keys, .choice kbd { display: none; }
