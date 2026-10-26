@@ -314,7 +314,9 @@
     }
 
     function holdMs() {
-        return reduce ? 480 : 1200;
+        if (reduce) return 480;
+        if (run >= 3) return 800;
+        return 1200;
     }
 
     function reveal(card) {
@@ -366,10 +368,12 @@
 
     function armHold() {
         holding = true;
+        var ms = holdMs();
+        document.documentElement.style.setProperty('--hold', ms + 'ms');
         var lock = cards[index].querySelector('.lock');
         if (lock) lock.classList.add('is-holding');
         if (holdTimer) window.clearTimeout(holdTimer);
-        holdTimer = window.setTimeout(releaseHold, holdMs());
+        holdTimer = window.setTimeout(releaseHold, ms);
     }
 
     function releaseHold() {
