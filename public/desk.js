@@ -39,8 +39,11 @@
         var career = loadCareer();
         var prev = career.days[day] || {};
         var ms = Number(entry.ms) || Number(prev.ms) || 0;
+        var nextScore = Number(entry.score) || 0;
+        var bestScore = Math.max(Number(prev.best) || 0, Number(prev.score) || 0, nextScore);
         career.days[day] = {
-            score: Number(entry.score) || 0,
+            score: nextScore,
+            best: bestScore,
             total: Number(entry.total) || 0,
             tier: entry.tier || '',
             title: entry.title || '',

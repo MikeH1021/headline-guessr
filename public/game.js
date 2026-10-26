@@ -225,20 +225,24 @@
         try {
             var data = JSON.parse(localStorage.getItem('hg-career') || '{}');
             var days = data && data.days ? data.days : {};
-            var best = -1;
-            var others = 0;
+            var bestOther = -1;
+            var otherDays = 0;
+            var todayScore = -1;
             Object.keys(days).forEach(function (key) {
-                if (key === roundDay) return;
                 var row = days[key];
                 var rowTotal = Number(row && row.total);
-                var rowScore = Number(row && row.score);
-                if (!(rowTotal > 0) || rowScore < 0 || rowScore > rowTotal) return;
-                others += 1;
-                var rate = rowScore / rowTotal;
-                if (rate > best) best = rate;
+                var rowScore = Math.max(Number(row && row.score) || 0, Number(row && row.best) || 0);
+                if (rowTotal !== total || rowScore < 0 || rowScore > rowTotal) return;
+                if (key === roundDay) {
+                    todayScore = rowScore;
+                    return;
+                }
+                otherDays += 1;
+                if (rowScore > bestOther) bestOther = rowScore;
             });
-            var mine = total > 0 ? correctCount / total : 0;
-            if (!(others > 0 && mine > best)) {
+            var ceiling = bestOther;
+            if (todayScore > ceiling) ceiling = todayScore;
+            if (!(otherDays > 0 && correctCount > ceiling)) {
                 var existing = JSON.parse(sessionStorage.getItem('hg-peak') || '{}');
                 if (existing.day === roundDay) sessionStorage.removeItem('hg-peak');
                 return;
