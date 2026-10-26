@@ -654,6 +654,25 @@ html.js .card { display: none; margin: 0; }
 
 html.js .card.is-active { display: flex; }
 
+html.js .card.is-active.is-hot:not(.is-revealed) .story {
+    animation: hot-card 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html.js .card.is-active.is-hot:not(.is-revealed) .folio { color: var(--yes); }
+
+html.js .card.is-active.is-hot:not(.is-revealed) .lock:not(.is-ready) {
+    color: var(--yes);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--yes) 72%, var(--line));
+    animation: pop 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html.js .card.is-active.is-hot:not(.is-revealed) .lock.is-ready {
+    background: var(--yes);
+    color: var(--yes-ink);
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--yes) 55%, black);
+    animation: pop 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 html.js .card:first-child.is-active {
     animation: deal 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -2285,6 +2304,11 @@ html.js .finish-fallback { display: none; }
     0% { transform: scale(0.92); }
     60% { transform: scale(1.04); }
     100% { transform: scale(1); }
+}
+
+@keyframes hot-card {
+    from { transform: translateY(8px); }
+    to { transform: none; }
 }
 
 @keyframes shake {

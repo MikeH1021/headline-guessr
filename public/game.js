@@ -292,9 +292,22 @@
         } catch (err) {}
     }
 
+    function heatCard() {
+        cards.forEach(function (card, cardIndex) {
+            var live = run >= 2 && cardIndex === index && !card.classList.contains('is-revealed');
+            card.classList.toggle('is-hot', live);
+            if (!live) return;
+            var lock = card.querySelector('.lock');
+            var select = card.querySelector('select');
+            if (!lock || !select || select.value) return;
+            lock.textContent = 'Keep it';
+        });
+    }
+
     function paintLock(card, value) {
         var lock = card.querySelector('.lock');
         var base = lock.getAttribute('data-label') || 'Lock in';
+        if (card.classList.contains('is-hot') && !card.classList.contains('is-revealed')) base = 'Keep it';
         lock.textContent = value ? base + ' · ' + value : base;
         lock.classList.toggle('is-ready', !!value);
     }
@@ -434,6 +447,7 @@
         index += 1;
         upcoming.classList.add('is-active');
         updateProgress();
+        heatCard();
         var wrap = document.querySelector('.stage-wrap');
         if (wrap) wrap.scrollTop = 0;
         focusHeadline(upcoming);
