@@ -33,12 +33,29 @@ export function hasSeen(headline: string, url: string) {
   return seenStatuses(headline, url).length > 0
 }
 
+export function rememberArticle(headline: string, url: string) {
+  const key = headlineKey(headline)
+  const href = articleHref(url)
+  if (!key || !href) return
+  db().prepare(
+    `INSERT INTO article_links (headline_key, url) VALUES (?, ?)
+     ON CONFLICT(headline_key) DO UPDATE SET url = excluded.url`,
+  ).run(key, href)
+}
+
+export function articleLink(headline: string) {
+  const key = headlineKey(headline)
+  if (!key) return ''
+  const row = db().prepare('SELECT url FROM article_links WHERE headline_key = ?').get(key) as { url: string } | undefined
+  return articleHref(row?.url)
+}
+
 export function articleUrls() {
   const found = new Map<string, string>()
   const rows = db().prepare(
     `SELECT key, checked_at, rowid AS ord
      FROM seen
-     WHERE status = 'round' AND (key LIKE 'h:%' OR key LIKE 'u:%')
+     WHERE key LIKE 'h:%' OR key LIKE 'u:%'
      ORDER BY checked_at, rowid`,
   ).all() as { key: string; checked_at: number; ord: number }[]
   let index = 0
@@ -71,6 +88,7 @@ export function articleUrls() {
 }
 
 export function markSeen(headline: string, url: string, status: string) {
+  rememberArticle(headline, url)
   const keys = seenKeys(headline, url)
   if (!keys.length) return
   const insert = db().prepare(

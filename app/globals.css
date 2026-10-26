@@ -1670,6 +1670,19 @@ html.js .finish-fallback { display: none; }
     letter-spacing: 0.08em;
 }
 
+.review .source a {
+    color: inherit;
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.14em;
+    text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+}
+
+.review .source a:hover,
+.review .source a:focus-visible {
+    text-decoration-color: currentColor;
+}
+
 .review.is-right {
     background: color-mix(in srgb, var(--yes) 8%, var(--paper-2));
     border-color: transparent;

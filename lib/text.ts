@@ -89,6 +89,19 @@ export function articleHref(value: unknown) {
   }
 }
 
+export function matchFeedUrl(headline: string, feedName: string, page: string, stories: { headline: string; url: string }[]) {
+  const key = headlineKey(headline)
+  if (!key) return ''
+  const google = page.includes('://news.google.com/')
+  for (const story of stories) {
+    const named = chargedStory(feedName, story.headline, google)
+    if (headlineKey(story.headline) !== key && headlineKey(named.headline) !== key) continue
+    const href = articleHref(story.url)
+    if (href) return href
+  }
+  return ''
+}
+
 export function articleHost(href: string) {
   try {
     const host = new URL(href).hostname.replace(/^www\./, '')

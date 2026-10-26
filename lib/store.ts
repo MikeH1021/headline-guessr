@@ -162,6 +162,26 @@ export function saveRound(cards: RoundCard[], when = new Date()) {
   writeArchive(refreshedOn, refreshedAt, payload)
 }
 
+export function applyCardUrls(day: string, urls: Map<string, string>) {
+  if (!day || !urls.size) return null
+  const round = readRound()
+  const source = round?.refreshedOn === day ? round : readArchive(day)
+  if (!source) return null
+  let changed = false
+  const cards = source.cards.map((card) => {
+    const href = articleHref(card.url)
+    if (href) return { ...card, url: href }
+    const url = urls.get(headlineKey(card.headline)) || ''
+    if (!url) return card
+    changed = true
+    return { ...card, url }
+  })
+  if (!changed) return { ...source, cards }
+  if (round?.refreshedOn === day) replaceCurrentCards(cards)
+  else writeArchive(day, source.refreshedAt, cardPayload(cards))
+  return { ...source, cards }
+}
+
 function replaceCurrentCards(cards: RoundCard[]) {
   const payload = cardPayload(cards)
   const existing = readRound()

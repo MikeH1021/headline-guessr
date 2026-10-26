@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { rankForScore, rankLadder } from '@/lib/scoring'
 import { playableDay, presentResult, refreshResult, resultForDay, roundContext } from '@/lib/roundview'
 import { currentSession } from '@/lib/session'
+import { repairRoundLinks } from '@/lib/repair-links'
 import { articleUrls } from '@/lib/seen'
 import { readArchive, readRound, saveSession } from '@/lib/store'
 import { articleHost, articleHref, headlineKey, isBanner } from '@/lib/text'
@@ -27,7 +28,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const total = answers.length
   const tier = rankForScore(result.score, total)
   const ladder = rankLadder()
-  const savedRound = day ? readArchive(day) : readRound()
+  const savedRound = await repairRoundLinks(day ? readArchive(day) : readRound())
   const round = roundContext(savedRound)
   const savedUrls = new Map<string, string>()
   for (const card of savedRound?.cards || []) {
@@ -126,7 +127,13 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
               <li key={index} className={`review ${right ? 'is-right' : 'is-wrong'}`} style={{ animationDelay: `${index * 50}ms` }}>
                 {story && (
                   <>
-                    <p className="source">{story.source}</p>
+                    <p className="source">
+                      {href ? (
+                        <a href={href} target="_blank" rel="noopener noreferrer">{story.source}</a>
+                      ) : (
+                        story.source
+                      )}
+                    </p>
                     <h2 className={isBanner(story.headline) ? 'is-banner' : undefined}>
                       {href ? (
                         <a

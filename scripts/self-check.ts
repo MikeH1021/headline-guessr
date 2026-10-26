@@ -20,7 +20,7 @@ import {
 } from '../lib/xai-oauth'
 import { articleText, storiesFromRss, takeUnseen } from '../lib/rss'
 import { DEFAULT_FEEDS, QUEUE_TARGET, ROUND_SIZE, SHORT_REOPEN } from '../lib/constants'
-import { articleHost, articleHref, chargeFirst, chargeHeadline, chargedStory, headlineKey, seenArticleUrl } from '../lib/text'
+import { articleHost, articleHref, chargeFirst, chargeHeadline, chargedStory, headlineKey, matchFeedUrl, seenArticleUrl } from '../lib/text'
 
 assert.equal(pythonRound(12.5), 12)
 assert.equal(pythonRound(13.5), 14)
@@ -133,6 +133,12 @@ assert.equal(articleHref('https://user:pass@example.com/story'), '')
 assert.equal(articleHost('https://www.example.com/story'), 'example.com')
 assert.equal(articleHost('https://chicago.suntimes.com/crime/x'), 'chicago.suntimes.com')
 assert.equal(articleHost('https://news.google.com/rss/articles/abc'), '')
+assert.equal(matchFeedUrl('Chicago man charged in robbery', 'WGN', 'https://wgntv.com/tag/crime/feed/', [
+  { headline: 'Chicago man charged in robbery', url: 'https://wgntv.com/news/chicagocrime/janitor' },
+]), 'https://wgntv.com/news/chicagocrime/janitor')
+assert.equal(matchFeedUrl('Man charged with murder after the warehouse shooting', 'Murder charges', 'https://news.google.com/rss/search?q=murder', [
+  { headline: 'Man charged with murder after the warehouse shooting - KMOV', url: 'https://news.google.com/rss/articles/warehouse' },
+]), 'https://news.google.com/rss/articles/warehouse')
 assert.equal(DEFAULT_FEEDS.length, 44)
 assert.deepEqual(DEFAULT_FEEDS.slice(-4).map(([name]) => name), ['Charged', 'Murder charges', 'Attempted murder', 'Kidnapping'])
 assert.equal(publicFeedUrl(DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1]), DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1])
@@ -340,6 +346,8 @@ async function checkImport() {
   const urls = articleUrls()
   assert.equal(urls.get(headlineKey('Harbor headline for the link')), 'https://example.com/harbor-story')
   assert.equal(urls.get(headlineKey('Second headline for the link')), 'https://example.com/second-story')
+  markSeen('Queued headline with a stored link', 'https://wgntv.com/news/queued-story', 'queued')
+  assert.equal(articleUrls().get(headlineKey('Queued headline with a stored link')), 'https://wgntv.com/news/queued-story')
   assert.equal(dropRoundCard(added ? added.headline.toLowerCase() : '', false), 'Removed from today’s round.')
   assert.equal(readArchive('2026-10-21')?.cards.length, 1)
   assert.equal(buildRound('2026-10-20')[0].source, 'CBS')

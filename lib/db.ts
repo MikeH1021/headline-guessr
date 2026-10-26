@@ -282,6 +282,10 @@ function migrate(database: Database.Database) {
       status TEXT NOT NULL,
       checked_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS article_links (
+      headline_key TEXT PRIMARY KEY,
+      url TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS oauth (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       access_token TEXT NOT NULL DEFAULT '',
