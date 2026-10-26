@@ -33,6 +33,7 @@
             }).join('');
             var title = document.querySelector('.rank-title');
             var pace = document.querySelector('.score-block .pace');
+            var bestRun = document.querySelector('.score-block .best-run');
             var streak = document.querySelector('.streak');
             var scoreLine = (number ? (number.getAttribute('data-score') || number.textContent) : '') + (of ? of.textContent.trim() : '');
             if (pace && !pace.hidden && pace.textContent.trim()) scoreLine += ' ' + pace.textContent.trim();
@@ -41,6 +42,7 @@
                 date ? date.textContent.trim() : '',
                 scoreLine,
                 tiles,
+                bestRun ? bestRun.textContent.trim() : '',
                 title ? title.textContent.trim() : '',
                 streak && !streak.hidden ? streak.textContent.trim() : '',
             ].filter(Boolean).join('\n');

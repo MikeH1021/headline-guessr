@@ -358,6 +358,23 @@
             node.textContent = 'in ' + formatPace(entry.ms);
         });
     }
+    if (document.body.classList.contains('page-results')) {
+        var runSaved = {};
+        try { runSaved = JSON.parse(sessionStorage.getItem('hg-run') || '{}'); } catch (err) { runSaved = {}; }
+        var bestStraight = Number(runSaved.best) || 0;
+        var scoreBlock = document.querySelector('.score-block');
+        if (runSaved.day === day && bestStraight >= 2 && scoreBlock && !scoreBlock.querySelector('.best-run')) {
+            var runNode = document.createElement('p');
+            runNode.className = 'best-run';
+            runNode.textContent = 'Best run ' + bestStraight;
+            var paceNode = scoreBlock.querySelector('.pace');
+            if (paceNode) paceNode.insertAdjacentElement('afterend', runNode);
+            else {
+                var scoreNode = scoreBlock.querySelector('.score');
+                if (scoreNode) scoreNode.insertAdjacentElement('afterend', runNode);
+            }
+        }
+    }
     paintEarlier();
 
     var sheet = document.getElementById('stats-sheet');

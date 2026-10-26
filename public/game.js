@@ -8,6 +8,8 @@
     var scoring = false;
     var holdTimer = null;
     var correctCount = 0;
+    var run = 0;
+    var bestRun = 0;
     var count = document.getElementById('count');
     var tally = document.getElementById('tally');
     var pips = Array.prototype.slice.call(document.querySelectorAll('.pip'));
@@ -112,6 +114,30 @@
         });
     }
 
+    function paintRun() {
+        var start = run >= 2 ? index - run + 1 : -1;
+        pips.forEach(function (pip, pipIndex) {
+            pip.classList.toggle('is-straight', start >= 0 && pipIndex >= start && pipIndex <= index);
+        });
+        if (!tally) return;
+        var snapped = tally.classList.contains('is-snap');
+        tally.textContent = correctCount + ' right';
+        tally.classList.toggle('is-hot', correctCount > 0);
+        tally.classList.toggle('is-run', run >= 2);
+        tally.classList.remove('is-pop');
+        tally.classList.remove('is-snap');
+        void tally.offsetWidth;
+        if (run >= 2) tally.classList.add('is-pop');
+        else if (snapped) tally.classList.add('is-snap');
+    }
+
+    function storeRun() {
+        try {
+            if (bestRun >= 2) sessionStorage.setItem('hg-run', JSON.stringify({ day: roundDay, best: bestRun }));
+            else sessionStorage.removeItem('hg-run');
+        } catch (err) {}
+    }
+
     function paintLock(card, value) {
         var lock = card.querySelector('.lock');
         var base = lock.getAttribute('data-label') || 'Lock in';
@@ -177,17 +203,24 @@
         });
         var note = card.querySelector('.miss');
         note.classList.toggle('is-right', correct);
-        note.textContent = correct ? 'Right.' : 'Wrong. ' + answer + '.';
+        if (correct) {
+            correctCount += 1;
+            run += 1;
+            if (run > bestRun) bestRun = run;
+        } else {
+            if (run >= 2 && tally) tally.classList.add('is-snap');
+            run = 0;
+        }
+        note.classList.toggle('is-run', correct && run >= 2);
+        note.textContent = correct
+            ? (run >= 2 ? 'Right. ' + run + ' straight.' : 'Right.')
+            : 'Wrong. ' + answer + '.';
         var lock = card.querySelector('.lock');
         lock.textContent = index === total - 1 ? 'See rank' : 'Next';
         lock.classList.toggle('is-right', correct);
         lock.classList.toggle('is-wrong', !correct);
-        if (correct) correctCount += 1;
         if (pips[index]) pips[index].classList.add(correct ? 'is-right' : 'is-wrong');
-        if (tally) {
-            tally.textContent = correctCount + ' right';
-            tally.classList.toggle('is-hot', correctCount > 0);
-        }
+        paintRun();
         if (lock.scrollIntoView) lock.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
         var wrap = document.querySelector('.stage-wrap');
         if (wrap) {
@@ -195,8 +228,10 @@
             window.setTimeout(function () { wrap.classList.remove('is-flipping'); }, reduce ? 40 : 720);
         }
         if (window.HGSound) {
-            if (correct) HGSound.right();
-            else HGSound.wrong();
+            if (correct) {
+                HGSound.right();
+                if (run >= 2 && HGSound.straight) HGSound.straight(run);
+            } else HGSound.wrong();
         }
     }
 
@@ -313,6 +348,12 @@
                 stamp.appendChild(paceLine);
             }
         } catch (err) {}
+        if (bestRun >= 2) {
+            var runLine = document.createElement('p');
+            runLine.className = 'stamp-run';
+            runLine.textContent = 'Best run ' + bestRun;
+            stamp.appendChild(runLine);
+        }
         document.body.appendChild(stamp);
         return stamp;
     }
@@ -343,6 +384,7 @@
         cards[index].classList.add('is-locked');
         lock.textContent = 'Scoring';
         storePace();
+        storeRun();
         scoreRound();
     }
 

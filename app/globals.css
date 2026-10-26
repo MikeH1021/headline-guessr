@@ -496,6 +496,11 @@ button.quiet.stats-open {
 .pip.is-right::after { content: "✓"; }
 .pip.is-wrong { background: var(--no); color: var(--no-ink); animation: pip-no 0.5s cubic-bezier(0.45, 0, 0.2, 1) both; }
 .pip.is-wrong::after { content: "×"; }
+.pip.is-straight {
+    box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--yes) 62%, transparent),
+        inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+}
 
 .pace-live {
     grid-column: 1;
@@ -526,6 +531,15 @@ button.quiet.stats-open {
 }
 
 .tally.is-hot { color: var(--yes); }
+
+.tally.is-run { color: var(--yes); transform-origin: right center; }
+
+.tally.is-pop,
+.tally.is-snap { transform-origin: right center; }
+
+.tally.is-pop { animation: tally-pop 0.38s cubic-bezier(0.22, 1, 0.36, 1); }
+
+.tally.is-snap { animation: shake 0.36s ease; }
 
 .page-game .board > .dateline {
     margin-bottom: 6px;
@@ -805,6 +819,11 @@ html.js .card:first-child.is-active:not(.is-revealed) .choice:nth-child(5) { ani
 
 .miss.is-right { color: var(--good); }
 
+.card.is-revealed .miss.is-run {
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+
 .card.is-revealed .lock.is-right {
     background: var(--yes);
     color: var(--yes-ink);
@@ -927,6 +946,15 @@ html.js .finish-fallback { display: none; }
     color: var(--good);
     font-weight: 800;
     letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.best-run {
+    margin: 8px 0 0;
+    color: var(--yes);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
 }
 
@@ -1154,6 +1182,17 @@ html.js .finish-fallback { display: none; }
     letter-spacing: 0.12em;
     text-transform: uppercase;
     font-variant-numeric: tabular-nums;
+}
+
+.stamp-run {
+    position: relative;
+    z-index: 1;
+    margin: 10px 0 0;
+    color: var(--yes);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
 }
 
 .rank-note { margin: 4px 0 0; color: var(--ink-soft); }
@@ -2256,6 +2295,12 @@ html.js .finish-fallback { display: none; }
 @keyframes pip-glow {
     0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ink) 28%, transparent); }
     100% { box-shadow: 0 0 0 7px transparent; }
+}
+
+@keyframes tally-pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.14); }
+    100% { transform: scale(1); }
 }
 
 @media (min-width: 700px) {

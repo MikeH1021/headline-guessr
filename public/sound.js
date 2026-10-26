@@ -123,6 +123,18 @@
         knock(audio, now + 0.14, 0.04, 0.08, 1800);
     }
 
+    function straight(count) {
+        if (muted()) return;
+        var audio = resume();
+        if (!audio) return;
+        var now = audio.currentTime;
+        var step = Math.max(2, Math.min(8, count | 0));
+        var freq = 880 + (step - 2) * 110;
+        voice(audio, now + 0.24, freq, 0.14, 'sine', 0.055);
+        if (step >= 3) voice(audio, now + 0.34, Math.min(2400, freq * 1.25), 0.16, 'triangle', 0.04);
+        if (step >= 5) knock(audio, now + 0.34, 0.03, 0.05, 2600);
+    }
+
     function wrong() {
         if (muted()) return;
         var audio = resume();
@@ -242,6 +254,7 @@
         next: next,
         miss: miss,
         right: right,
+        straight: straight,
         wrong: wrong,
         finish: finish,
         mountToggle: mountToggle,
