@@ -1496,6 +1496,8 @@ html.js .finish-fallback { display: none; }
 }
 
 .archive-links a { font-weight: 700; }
+
+.archive-links a.is-chase { color: var(--accent); }
 .earlier .kicker { margin-bottom: 8px; }
 
 .edition {

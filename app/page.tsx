@@ -13,6 +13,14 @@ function marksFor(saved: LastResult | null) {
   return guesses.map((guess, index) => guess === answers[index])
 }
 
+function replayLabel(saved: LastResult | null, total: number) {
+  const score = Number(saved?.score) || 0
+  if (!saved) return 'Play'
+  if (total > 0 && score === total) return 'Hold the sweep'
+  if (score > 0) return `Beat ${score}`
+  return 'Play again'
+}
+
 export default async function HomePage() {
   const { id, data } = await currentSession()
   const round = roundContext()
@@ -99,7 +107,12 @@ export default async function HomePage() {
                     )}
                     {saved && <span className="edition-score">{saved.score}/{total}</span>}
                     <span className="archive-links">
-                      <a href={`/game?day=${item.refreshedOn}`}>{saved ? 'Play again' : 'Play'}</a>
+                      <a
+                        className={saved && (Number(saved.score) || 0) > 0 ? 'is-chase' : undefined}
+                        href={`/game?day=${item.refreshedOn}`}
+                      >
+                        {replayLabel(saved, total)}
+                      </a>
                       {saved && <a href={`/results?day=${item.refreshedOn}`}>Result</a>}
                     </span>
                   </li>
