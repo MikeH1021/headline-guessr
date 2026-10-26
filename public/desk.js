@@ -352,6 +352,25 @@
                 node.textContent = label;
             });
         }
+        if (
+            document.body.classList.contains('page-home')
+            && !document.getElementById('today-play')
+            && saved.last === yesterday
+            && streakNow >= 1
+        ) {
+            var nextStreak = streakNow + 1;
+            var kicker = document.querySelector('.hero .kicker');
+            if (kicker && kicker.textContent.trim() === 'A daily round') {
+                kicker.textContent = 'Streak on the line';
+                kicker.classList.add('is-live');
+            }
+            var play = document.querySelector('.hero .play-btn');
+            if (play && play.getAttribute('href') === '/game' && play.textContent.trim() === 'Play') {
+                play.textContent = 'Play · day ' + nextStreak;
+                play.classList.add('is-chase');
+                play.setAttribute('aria-label', 'Play and make it a ' + nextStreak + '-day streak');
+            }
+        }
     }
 
     var entry = day ? (loadCareer().days || {})[day] : null;

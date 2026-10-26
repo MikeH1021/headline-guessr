@@ -89,7 +89,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           </div>
         </div>
-        <BootScripts src="/rum.js,/desk.js" />
+        <BootScripts src="/rum.js,/desk.js?v=2" />
       </body>
     </html>
   )
