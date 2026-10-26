@@ -35,6 +35,7 @@
             var pace = document.querySelector('.score-block .pace');
             var bestRun = document.querySelector('.score-block .best-run');
             var fresh = document.querySelector('.score-block .new-best');
+            var peak = document.querySelector('.score-block .peak-round');
             var streak = document.querySelector('.streak');
             var scoreLine = (number ? (number.getAttribute('data-score') || number.textContent) : '') + (of ? of.textContent.trim() : '');
             if (pace && !pace.hidden && pace.textContent.trim()) scoreLine += ' ' + pace.textContent.trim();
@@ -43,6 +44,7 @@
                 date ? date.textContent.trim() : '',
                 scoreLine,
                 fresh ? fresh.textContent.trim() : '',
+                peak ? peak.textContent.trim() : '',
                 tiles,
                 bestRun ? bestRun.textContent.trim() : '',
                 title ? title.textContent.trim() : '',

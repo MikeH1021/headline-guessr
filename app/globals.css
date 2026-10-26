@@ -991,6 +991,15 @@ html.js .finish-fallback { display: none; }
 
 .new-best { letter-spacing: 0.16em; }
 
+.peak-round {
+    margin: 8px 0 0;
+    color: var(--accent);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
 .rank-kicker {
     margin: 22px 0 0;
 }
@@ -1234,6 +1243,18 @@ html.js .finish-fallback { display: none; }
 .stamp-best {
     letter-spacing: 0.16em;
     animation: tally-pop 0.42s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stamp-peak {
+    position: relative;
+    z-index: 1;
+    margin: 10px 0 0;
+    color: var(--accent);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    animation: tally-pop 0.42s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .stamp-streak {

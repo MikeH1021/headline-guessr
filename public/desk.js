@@ -390,6 +390,15 @@
             var scoreRow = scoreBlock.querySelector('.score');
             if (scoreRow) scoreRow.insertAdjacentElement('afterend', fresh);
         }
+        var peakSaved = {};
+        try { peakSaved = JSON.parse(sessionStorage.getItem('hg-peak') || '{}'); } catch (err) { peakSaved = {}; }
+        if (peakSaved.day === day && scoreBlock && !scoreBlock.querySelector('.peak-round')) {
+            var peak = document.createElement('p');
+            peak.className = 'peak-round';
+            peak.textContent = 'Best round';
+            var peakAnchor = scoreBlock.querySelector('.new-best') || scoreBlock.querySelector('.score');
+            if (peakAnchor) peakAnchor.insertAdjacentElement('afterend', peak);
+        }
     }
     paintEarlier();
 

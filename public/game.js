@@ -221,6 +221,32 @@
         }
     }
 
+    function storePeak() {
+        try {
+            var data = JSON.parse(localStorage.getItem('hg-career') || '{}');
+            var days = data && data.days ? data.days : {};
+            var best = -1;
+            var others = 0;
+            Object.keys(days).forEach(function (key) {
+                if (key === roundDay) return;
+                var row = days[key];
+                var rowTotal = Number(row && row.total);
+                var rowScore = Number(row && row.score);
+                if (!(rowTotal > 0) || rowScore < 0 || rowScore > rowTotal) return;
+                others += 1;
+                var rate = rowScore / rowTotal;
+                if (rate > best) best = rate;
+            });
+            var mine = total > 0 ? correctCount / total : 0;
+            if (!(others > 0 && mine > best)) {
+                var existing = JSON.parse(sessionStorage.getItem('hg-peak') || '{}');
+                if (existing.day === roundDay) sessionStorage.removeItem('hg-peak');
+                return;
+            }
+            sessionStorage.setItem('hg-peak', JSON.stringify({ day: roundDay }));
+        } catch (err) {}
+    }
+
     function storeChase() {
         try {
             if (prior == null) return;
@@ -465,6 +491,15 @@
                 stamp.appendChild(bestLine);
             }
         } catch (err) {}
+        try {
+            var peak = JSON.parse(sessionStorage.getItem('hg-peak') || '{}');
+            if (peak.day === roundDay) {
+                var peakLine = document.createElement('p');
+                peakLine.className = 'stamp-peak';
+                peakLine.textContent = 'Best round';
+                stamp.appendChild(peakLine);
+            }
+        } catch (err) {}
         stamp.appendChild(kicker);
         stamp.appendChild(heading);
         stamp.appendChild(note);
@@ -537,6 +572,7 @@
         storePace();
         storeRun();
         storeChase();
+        storePeak();
         scoreRound();
     }
 
