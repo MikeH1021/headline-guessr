@@ -919,6 +919,11 @@ html.js .card.is-active:not(.is-revealed) .choice:nth-child(5) kbd { animation-d
     letter-spacing: 0.02em;
 }
 
+.card.is-revealed .miss.is-snap {
+    font-weight: 800;
+    animation: shake 0.36s ease;
+}
+
 .card.is-revealed .lock.is-right {
     background: var(--yes);
     color: var(--yes-ink);

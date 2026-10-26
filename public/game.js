@@ -433,19 +433,22 @@
         });
         var note = card.querySelector('.miss');
         note.classList.toggle('is-right', correct);
+        var broke = 0;
         if (correct) {
             correctCount += 1;
             run += 1;
             if (run > bestRun) bestRun = run;
         } else {
-            if (run >= 2 && tally) tally.classList.add('is-snap');
+            if (run >= 2) broke = run;
+            if (broke && tally) tally.classList.add('is-snap');
             run = 0;
             if (prior === total) chaseSlipped = true;
         }
         note.classList.toggle('is-run', correct && run >= 2);
+        note.classList.toggle('is-snap', broke > 0);
         note.textContent = correct
             ? (run >= 2 ? 'Right. ' + run + ' straight.' : 'Right.')
-            : 'Wrong. ' + answer + '.';
+            : (broke ? 'Snapped at ' + broke + '. ' + answer + '.' : 'Wrong. ' + answer + '.');
         var lock = card.querySelector('.lock');
         lock.textContent = index === total - 1 ? 'See rank' : 'Next';
         lock.classList.toggle('is-right', correct);
