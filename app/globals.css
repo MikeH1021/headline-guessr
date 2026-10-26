@@ -1226,6 +1226,22 @@ html.js .finish-fallback { display: none; }
     animation: tally-pop 0.42s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.stamp-streak {
+    position: relative;
+    z-index: 1;
+    margin: 14px 0 0;
+    color: var(--ink);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.stamp-streak.is-up {
+    color: var(--yes);
+    animation: tally-pop 0.42s 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .rank-note { margin: 4px 0 0; color: var(--ink-soft); }
 
 .share-bar {

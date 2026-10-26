@@ -395,6 +395,32 @@
         });
     });
 
+    function dayShift(iso, delta) {
+        var when = new Date(iso + 'T12:00:00');
+        if (isNaN(when.getTime())) return '';
+        when.setDate(when.getDate() + delta);
+        return when.getFullYear() + '-'
+            + String(when.getMonth() + 1).padStart(2, '0') + '-'
+            + String(when.getDate()).padStart(2, '0');
+    }
+
+    function streakLine() {
+        if (!roundDay || /[?&]day=/.test(location.search)) return null;
+        var saved = {};
+        try { saved = JSON.parse(localStorage.getItem('hg-streak') || '{}'); } catch (err) { saved = {}; }
+        var yesterday = dayShift(roundDay, -1);
+        var next = saved.last === roundDay
+            ? (Number(saved.streak) || 1)
+            : (saved.last === yesterday ? (Number(saved.streak) || 0) + 1 : 1);
+        if (!(next >= 1)) return null;
+        var best = 0;
+        try { best = Number(JSON.parse(localStorage.getItem('hg-career') || '{}').max) || 0; } catch (err) {}
+        if (next > best) best = next;
+        var label = next === 1 ? '1-day streak' : next + '-day streak';
+        if (best > next) label += ' · best ' + best;
+        return { label: label, extended: saved.last !== roundDay };
+    }
+
     function showStamp(title, line, tier) {
         var stamp = document.createElement('div');
         stamp.className = 'stamp' + (tier ? ' is-' + tier : '');
@@ -463,6 +489,13 @@
             runLine.className = 'stamp-run';
             runLine.textContent = 'Best run ' + bestRun;
             stamp.appendChild(runLine);
+        }
+        var streak = streakLine();
+        if (streak) {
+            var streakNode = document.createElement('p');
+            streakNode.className = 'stamp-streak' + (streak.extended ? ' is-up' : '');
+            streakNode.textContent = streak.label;
+            stamp.appendChild(streakNode);
         }
         document.body.appendChild(stamp);
         return stamp;
