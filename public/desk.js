@@ -374,6 +374,15 @@
                 if (scoreNode) scoreNode.insertAdjacentElement('afterend', runNode);
             }
         }
+        var chaseSaved = {};
+        try { chaseSaved = JSON.parse(sessionStorage.getItem('hg-chase') || '{}'); } catch (err) { chaseSaved = {}; }
+        if (chaseSaved.day === day && scoreBlock && !scoreBlock.querySelector('.new-best')) {
+            var fresh = document.createElement('p');
+            fresh.className = 'new-best';
+            fresh.textContent = chaseSaved.held ? 'Sweep held' : 'New best';
+            var scoreRow = scoreBlock.querySelector('.score');
+            if (scoreRow) scoreRow.insertAdjacentElement('afterend', fresh);
+        }
     }
     paintEarlier();
 

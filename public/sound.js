@@ -135,6 +135,16 @@
         if (step >= 5) knock(audio, now + 0.34, 0.03, 0.05, 2600);
     }
 
+    function best() {
+        if (muted()) return;
+        var audio = resume();
+        if (!audio) return;
+        var now = audio.currentTime;
+        voice(audio, now + 0.3, 1174, 0.1, 'sine', 0.045);
+        voice(audio, now + 0.4, 1568, 0.16, 'triangle', 0.05);
+        voice(audio, now + 0.52, 2093, 0.14, 'sine', 0.03);
+    }
+
     function wrong() {
         if (muted()) return;
         var audio = resume();
@@ -255,6 +265,7 @@
         miss: miss,
         right: right,
         straight: straight,
+        best: best,
         wrong: wrong,
         finish: finish,
         mountToggle: mountToggle,

@@ -10,6 +10,10 @@
     var correctCount = 0;
     var run = 0;
     var bestRun = 0;
+    var prior = null;
+    var chaseNode = null;
+    var chaseNoted = false;
+    var chaseSlipped = false;
     var count = document.getElementById('count');
     var tally = document.getElementById('tally');
     var pips = Array.prototype.slice.call(document.querySelectorAll('.pip'));
@@ -138,6 +142,72 @@
         } catch (err) {}
     }
 
+    function readPrior() {
+        if (!form) return;
+        if (form.hasAttribute('data-prior')) {
+            var score = Number(form.getAttribute('data-prior'));
+            if (score >= 1 && score <= total) prior = score;
+            return;
+        }
+        try {
+            var data = JSON.parse(localStorage.getItem('hg-career') || '{}');
+            var row = data && data.days ? data.days[roundDay] : null;
+            var savedScore = Number(row && row.score);
+            var savedTotal = Number(row && row.total);
+            if (savedTotal === total && savedScore >= 1 && savedScore <= total) prior = savedScore;
+        } catch (err) {}
+    }
+
+    function paintChase() {
+        if (prior == null) return;
+        if (!chaseNode) chaseNode = document.getElementById('chase');
+        if (!chaseNode) {
+            var progress = document.querySelector('.progress');
+            if (!progress) return;
+            chaseNode = document.createElement('p');
+            chaseNode.className = 'chase';
+            chaseNode.id = 'chase';
+            chaseNode.setAttribute('aria-live', 'polite');
+            progress.insertAdjacentElement('beforebegin', chaseNode);
+        }
+        var holding = prior === total;
+        if (holding && chaseSlipped) {
+            chaseNode.hidden = true;
+            return;
+        }
+        var swept = holding && correctCount === total;
+        var beaten = !holding && correctCount > prior;
+        var label = swept ? 'Sweep held' : (beaten ? 'New best' : (holding ? 'Hold the sweep' : 'Beat ' + prior));
+        if (chaseNode.textContent !== label) {
+            chaseNode.hidden = false;
+            chaseNode.textContent = label;
+            if (swept || beaten) {
+                chaseNode.classList.remove('is-beat');
+                void chaseNode.offsetWidth;
+                chaseNode.classList.add('is-beat');
+            }
+        }
+        if ((swept || beaten) && !chaseNoted) {
+            chaseNoted = true;
+            if (window.HGSound && HGSound.best) HGSound.best();
+            try { if (navigator.vibrate) navigator.vibrate([10, 40, 16]); } catch (err) {}
+        }
+    }
+
+    function storeChase() {
+        try {
+            if (prior == null) return;
+            var held = prior === total && correctCount === total;
+            var beat = held || correctCount > prior;
+            var existing = JSON.parse(sessionStorage.getItem('hg-chase') || '{}');
+            if (!beat) {
+                if (existing.day === roundDay) sessionStorage.removeItem('hg-chase');
+                return;
+            }
+            sessionStorage.setItem('hg-chase', JSON.stringify({ day: roundDay, held: held }));
+        } catch (err) {}
+    }
+
     function paintLock(card, value) {
         var lock = card.querySelector('.lock');
         var base = lock.getAttribute('data-label') || 'Lock in';
@@ -210,6 +280,7 @@
         } else {
             if (run >= 2 && tally) tally.classList.add('is-snap');
             run = 0;
+            if (prior === total) chaseSlipped = true;
         }
         note.classList.toggle('is-run', correct && run >= 2);
         note.textContent = correct
@@ -227,6 +298,7 @@
             wrap.classList.add('is-flipping');
             window.setTimeout(function () { wrap.classList.remove('is-flipping'); }, reduce ? 40 : 720);
         }
+        paintChase();
         if (window.HGSound) {
             if (correct) {
                 HGSound.right();
@@ -331,6 +403,15 @@
         note.className = 'stamp-line';
         note.textContent = line || '';
         stamp.appendChild(score);
+        try {
+            var chase = JSON.parse(sessionStorage.getItem('hg-chase') || '{}');
+            if (chase.day === roundDay) {
+                var bestLine = document.createElement('p');
+                bestLine.className = 'stamp-best';
+                bestLine.textContent = chase.held ? 'Sweep held' : 'New best';
+                stamp.appendChild(bestLine);
+            }
+        } catch (err) {}
         stamp.appendChild(kicker);
         stamp.appendChild(heading);
         stamp.appendChild(note);
@@ -385,6 +466,7 @@
         lock.textContent = 'Scoring';
         storePace();
         storeRun();
+        storeChase();
         scoreRound();
     }
 
@@ -483,6 +565,8 @@
         card.querySelector('.lock').click();
     });
 
+    readPrior();
+    paintChase();
     updateProgress();
     fitLock(cards[0]);
     if (readClock().day === roundDay && readClock().start) {

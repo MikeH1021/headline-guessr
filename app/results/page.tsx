@@ -60,6 +60,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   if (linked) saveSession(id, data)
   const again = day ? `/game?day=${day}` : '/game'
   const perfect = result.score === total && total > 0
+  const againLabel = perfect ? 'Hold the sweep' : result.score > 0 ? `Beat ${result.score}` : 'Play again'
   return (
     <div className="frame">
       <header className="topbar">
@@ -177,7 +178,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
           })}
         </ul>
         <div className="actions">
-          <a className="play-btn" href={again}>Play again</a>
+          <a className={`play-btn${againLabel === 'Play again' ? '' : ' is-chase'}`} href={again}>{againLabel}</a>
           <a className="btn btn-ghost" href="/">Home</a>
         </div>
         <div className="daily-foot">

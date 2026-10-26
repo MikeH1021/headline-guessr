@@ -62,7 +62,9 @@ export default async function HomePage() {
               />
               <div className="actions hero-actions">
                 <a className="play-btn" href="/results">See result</a>
-                <a className="btn btn-ghost" href="/game">Play again</a>
+                <a className={`btn btn-ghost${played.score > 0 ? ' is-chase' : ''}`} href="/game">
+                  {played.score === played.total ? 'Hold the sweep' : played.score > 0 ? `Beat ${played.score}` : 'Play again'}
+                </a>
               </div>
             </>
           ) : (

@@ -329,6 +329,8 @@ button.quiet.stats-open {
     box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 58%, black);
 }
 
+.is-chase { animation: pop 0.45s 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 .login-form {
     display: grid;
     gap: 14px;
@@ -554,6 +556,22 @@ button.quiet.stats-open {
 }
 
 .keys { color: var(--ink-soft); }
+
+.chase {
+    margin: 10px 0 0;
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    line-height: 1.2;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.chase.is-beat {
+    color: var(--yes);
+    animation: tally-pop 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
 
 @media (hover: none), (pointer: coarse) {
     .keys, .choice kbd { display: none; }
@@ -949,7 +967,8 @@ html.js .finish-fallback { display: none; }
     text-transform: uppercase;
 }
 
-.best-run {
+.best-run,
+.new-best {
     margin: 8px 0 0;
     color: var(--yes);
     font-size: 0.78rem;
@@ -957,6 +976,8 @@ html.js .finish-fallback { display: none; }
     letter-spacing: 0.14em;
     text-transform: uppercase;
 }
+
+.new-best { letter-spacing: 0.16em; }
 
 .rank-kicker {
     margin: 22px 0 0;
@@ -1184,7 +1205,8 @@ html.js .finish-fallback { display: none; }
     font-variant-numeric: tabular-nums;
 }
 
-.stamp-run {
+.stamp-run,
+.stamp-best {
     position: relative;
     z-index: 1;
     margin: 10px 0 0;
@@ -1193,6 +1215,11 @@ html.js .finish-fallback { display: none; }
     font-weight: 800;
     letter-spacing: 0.14em;
     text-transform: uppercase;
+}
+
+.stamp-best {
+    letter-spacing: 0.16em;
+    animation: tally-pop 0.42s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .rank-note { margin: 4px 0 0; color: var(--ink-soft); }

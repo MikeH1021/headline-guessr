@@ -1,7 +1,7 @@
 import { BootScripts } from '@/components/boot-scripts'
 import { ETHNICITIES } from '@/lib/constants'
 import { HeadlineError } from '@/lib/errors'
-import { buildRound, playableDay, roundContext } from '@/lib/roundview'
+import { buildRound, playableDay, resultForDay, roundContext } from '@/lib/roundview'
 import { currentSession } from '@/lib/session'
 import { readArchive, readRound, saveSession } from '@/lib/store'
 import { articleHref, isBanner } from '@/lib/text'
@@ -15,9 +15,16 @@ export default async function GamePage({ searchParams }: { searchParams: Promise
   const saved = day ? readArchive(day) : readRound()
   const round = roundContext(saved)
   let error = ''
+  let priorScore: number | null = null
   let cards: { source: string; headline: string; answer: string }[] = []
   try {
     const dealt = buildRound(day)
+    const playKey = saved?.refreshedOn || day
+    const last = playKey ? resultForDay(data, playKey) : null
+    const lastTotal = last && Array.isArray(last.answers) && last.answers.length
+      ? last.answers.length
+      : last && Array.isArray(last.userAnswers) ? last.userAnswers.length : 0
+    if (last && lastTotal === dealt.length && last.score >= 0 && last.score <= dealt.length) priorScore = last.score
     data.stories = dealt.map((card) => {
       const url = articleHref(card.url)
       return url
@@ -48,6 +55,11 @@ export default async function GamePage({ searchParams }: { searchParams: Promise
           {cards.length > 0 && (
             <>
               <p className="instructions">Guess the ethnicity of the perpetrator. <span className="keys">Keys 1–5, then Enter.</span></p>
+              {priorScore != null && priorScore >= 1 && (
+                <p className="chase" id="chase" aria-live="polite">
+                  {priorScore === cards.length ? 'Hold the sweep' : `Beat ${priorScore}`}
+                </p>
+              )}
               <div className="progress">
                 <ol className="pips" aria-hidden="true">
                   {cards.map((card, index) => (
@@ -57,7 +69,14 @@ export default async function GamePage({ searchParams }: { searchParams: Promise
                 <p className="pace-live" id="pace-live" hidden></p>
                 <p className="tally" id="tally" aria-live="polite"></p>
               </div>
-              <form method="post" action="/play" id="game-form" autoComplete="off" tabIndex={-1}>
+              <form
+                method="post"
+                action="/play"
+                id="game-form"
+                autoComplete="off"
+                tabIndex={-1}
+                data-prior={priorScore == null ? undefined : String(priorScore)}
+              >
                 <div className="stage" id="stage">
                   {cards.map((card, index) => (
                     <section
