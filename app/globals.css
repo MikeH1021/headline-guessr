@@ -614,13 +614,16 @@ button.quiet.stats-open {
 }
 
 .chase.is-beat,
-.chase.is-close {
+.chase.is-close,
+.chase.is-slip {
     animation: tally-pop 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .chase.is-beat { color: var(--yes); }
 
 .chase.is-close { color: var(--accent); }
+
+.chase.is-slip { color: var(--no); }
 
 @media (hover: none), (pointer: coarse) {
     .keys, .choice kbd { display: none; }

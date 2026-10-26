@@ -265,18 +265,29 @@
             chaseNode.setAttribute('aria-live', 'polite');
             progress.insertAdjacentElement('beforebegin', chaseNode);
         }
-        var holding = prior === total;
-        if (holding && chaseSlipped) {
-            chaseNode.hidden = true;
-            return;
+        function markSlip() {
+            var first = !chaseNode.classList.contains('is-slip');
+            chaseNode.hidden = false;
+            chaseNode.textContent = 'Slipped';
+            chaseNode.classList.remove('is-beat');
+            chaseNode.classList.remove('is-close');
+            if (!first) return;
+            chaseNode.classList.remove('is-slip');
+            void chaseNode.offsetWidth;
+            chaseNode.classList.add('is-slip');
         }
+        var holding = prior === total;
         var revealed = cards[index] && cards[index].classList.contains('is-revealed');
         var left = revealed ? total - index - 1 : total - index;
         var swept = holding && correctCount === total;
         var beaten = !holding && correctCount > prior;
         var closing = !holding && !beaten && correctCount === prior && left >= 1;
+        if (holding && chaseSlipped) {
+            markSlip();
+            return;
+        }
         if (!holding && !beaten && correctCount + left <= prior) {
-            chaseNode.hidden = true;
+            markSlip();
             return;
         }
         var label = swept ? 'Sweep held' : (beaten ? 'New best' : (closing ? 'One away' : (holding ? 'Hold the sweep' : 'Beat ' + prior)));
@@ -285,6 +296,7 @@
             chaseNode.textContent = label;
             chaseNode.classList.remove('is-beat');
             chaseNode.classList.remove('is-close');
+            chaseNode.classList.remove('is-slip');
             if (swept || beaten || closing) {
                 void chaseNode.offsetWidth;
                 chaseNode.classList.add(swept || beaten ? 'is-beat' : 'is-close');
