@@ -1,12 +1,12 @@
 import { db } from './db'
 import { feedUrl } from './feeds'
-import { articleHref, headlineKey } from './text'
+import { articleHref, headlineKey, seenArticleUrl } from './text'
 
 export function seenKeys(headline: string, url: string) {
   const keys: string[] = []
   const head = headlineKey(headline)
   if (head) keys.push(`h:${head}`)
-  const clean = feedUrl(url)
+  const clean = feedUrl(url) || seenArticleUrl(url)
   if (!clean) return keys
   try {
     const parsed = new URL(clean)

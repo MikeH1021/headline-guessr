@@ -19,7 +19,7 @@ import { grok } from './grok'
 import { jobLog, jobSet, jobSnapshot, markRefreshFinished, markRefreshStarted } from './job'
 import { storiesFrom, storyCopy, takeUnseen, type GatheredStory } from './rss'
 import { markSeen, seenStatuses } from './seen'
-import { chargeHeadline, chargedStory, headlineKey } from './text'
+import { chargeFirst, chargeHeadline, chargedStory, headlineKey } from './text'
 import { appendQueue, currentFeeds, currentPrompt, currentRefreshTime, metaValue, readQueue, readRound, saveRound, setMeta, takeRound } from './store'
 import { localISO } from './time'
 
@@ -226,8 +226,9 @@ async function searchHeadlines(stopAt: number) {
       jobLog(`${feed.name}: the feed could not be read.`)
       return []
     }
+    const google = feed.url.includes('://news.google.com/')
     const found = batch.map((story) => {
-      const named = chargedStory(story.source, story.headline)
+      const named = chargedStory(story.source, story.headline, google)
       return named.source === story.source && named.headline === story.headline ? story : { ...story, ...named }
     })
     const { fresh: unseen, checked } = takeUnseen(found, seenStory, QUEUE_TAKE)
@@ -235,8 +236,11 @@ async function searchHeadlines(stopAt: number) {
     jobLog(`${feed.name}: ${unseen.length} new. ${checked} already checked.`)
     return unseen
   })
-  const fresh = interleave(groups, Math.max(1, feeds.length) * QUEUE_TAKE)
+  const mixed = interleave(groups, Math.max(1, feeds.length) * QUEUE_TAKE)
+  const fresh = chargeFirst(mixed)
+  const arrests = fresh.filter((story) => chargeHeadline(story.headline)).length
   jobLog(`Collected ${fresh.length} headlines from ${feeds.length} feeds. ${passed} already checked. ${fresh.length} new.`)
+  if (arrests && arrests < fresh.length) jobLog(`Checking ${arrests} arrest headlines before the others.`)
   if (reopened) jobLog(`Including ${reopened} arrest headlines that were screened before.`)
   if (reopenedShort) jobLog(`Including ${reopenedShort} headlines whose pages were too short to read before.`)
   const prior: string[] = [...held]

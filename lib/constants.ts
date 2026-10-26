@@ -56,6 +56,9 @@ export const DEFAULT_FEEDS: ReadonlyArray<readonly [string, string]> = [
   ['13News Now', 'https://www.13newsnow.com/feeds/syndication/rss/news/crime'],
   ['KENS San Antonio', 'https://www.kens5.com/feeds/syndication/rss/news/crime'],
   ['Charged', 'https://news.google.com/rss/search?q=%22charged+with%22+when:3d&hl=en-US&gl=US&ceid=US:en'],
+  ['Murder charges', 'https://news.google.com/rss/search?q=%22charged+with+murder%22+when:3d&hl=en-US&gl=US&ceid=US:en'],
+  ['Attempted murder', 'https://news.google.com/rss/search?q=%22charged+with+attempted+murder%22+when:3d&hl=en-US&gl=US&ceid=US:en'],
+  ['Kidnapping', 'https://news.google.com/rss/search?q=%22charged+with+kidnapping%22+when:3d&hl=en-US&gl=US&ceid=US:en'],
 ]
 
 export const GROK_MODELS = [

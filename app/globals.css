@@ -1709,6 +1709,17 @@ html.js .finish-fallback { display: none; }
     outline-offset: 3px;
 }
 
+.article-host {
+    display: block;
+    margin-top: 6px;
+    color: var(--ink-soft);
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-decoration: none;
+}
+
 .verdict {
     grid-column: 2;
     grid-row: 1 / span 2;

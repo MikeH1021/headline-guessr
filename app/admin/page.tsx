@@ -240,7 +240,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         </details>
         <details className="drawer" open>
           <summary>Refresh</summary>
-          <p>Queue new headlines reads past entries that were already checked, up to {FEED_SCAN} per feed, and sends at most {QUEUE_TAKE} new ones from each. It stops once the queue has {QUEUE_TARGET}, enough for more than one round. An arrest headline that was screened before can be tried once more. A headline whose page was too short to read is searched once more. A round is saved only when {ROUND_SIZE} headlines are confirmed. A checked headline, one already in the queue, and one already in a round are skipped, so Grok is not called for them again.</p>
+          <p>Queue new headlines reads past entries that were already checked, up to {FEED_SCAN} per feed, and sends at most {QUEUE_TAKE} new ones from each. It stops once the queue has {QUEUE_TARGET}, enough for more than one round. Arrest headlines are checked first. An arrest headline that was screened before can be tried once more. A headline whose page was too short to read is searched once more. A round is saved only when {ROUND_SIZE} headlines are confirmed. A checked headline, one already in the queue, and one already in a round are skipped, so Grok is not called for them again.</p>
           <form method="post" action="/admin/post" {...formQuiet}>
             <button className="btn" type="submit" name="action" value="queue_more">Queue new headlines</button>
           </form>

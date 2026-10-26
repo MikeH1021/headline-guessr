@@ -23,8 +23,32 @@ export function headlineKey(headline: string) {
   return headline.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 240)
 }
 
-export function chargedStory(source: string, headline: string) {
-  if (source !== 'Charged') return { source, headline }
+export function seenArticleUrl(value: unknown) {
+  if (typeof value !== 'string') return ''
+  const raw = value.trim()
+  if (raw.length <= 300 || raw.length > 4000 || !/^https?:\/\/\S+$/.test(raw)) return ''
+  try {
+    const parsed = new URL(raw)
+    if (parsed.username || parsed.password) return ''
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return ''
+    return raw
+  } catch {
+    return ''
+  }
+}
+
+export function chargeFirst<T extends { headline: string }>(stories: T[]) {
+  const charges: T[] = []
+  const rest: T[] = []
+  for (const story of stories) {
+    if (chargeHeadline(story.headline)) charges.push(story)
+    else rest.push(story)
+  }
+  return charges.length && rest.length ? [...charges, ...rest] : stories
+}
+
+export function chargedStory(source: string, headline: string, google = false) {
+  if (!google && source !== 'Charged') return { source, headline }
   const match = /^(.*\S)\s+[-–—|]\s+([^|–—\n-]{2,40})$/.exec(headline.trim())
   if (!match) return { source, headline }
   const title = match[1].trim()

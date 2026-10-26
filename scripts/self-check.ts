@@ -20,7 +20,7 @@ import {
 } from '../lib/xai-oauth'
 import { articleText, storiesFromRss, takeUnseen } from '../lib/rss'
 import { DEFAULT_FEEDS, QUEUE_TARGET, ROUND_SIZE, SHORT_REOPEN } from '../lib/constants'
-import { articleHref, chargeHeadline, chargedStory, headlineKey } from '../lib/text'
+import { articleHref, chargeFirst, chargeHeadline, chargedStory, headlineKey, seenArticleUrl } from '../lib/text'
 
 assert.equal(pythonRound(12.5), 12)
 assert.equal(pythonRound(13.5), 14)
@@ -130,9 +130,19 @@ assert.equal(publicFeedUrl('https://user:pass@example.com/feed'), '')
 assert.equal(articleHref('https://example.com/story'), 'https://example.com/story')
 assert.equal(articleHref('javascript:alert(1)'), '')
 assert.equal(articleHref('https://user:pass@example.com/story'), '')
-assert.equal(DEFAULT_FEEDS.length, 41)
-assert.equal(DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][0], 'Charged')
+assert.equal(DEFAULT_FEEDS.length, 44)
+assert.deepEqual(DEFAULT_FEEDS.slice(-4).map(([name]) => name), ['Charged', 'Murder charges', 'Attempted murder', 'Kidnapping'])
 assert.equal(publicFeedUrl(DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1]), DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1])
+assert.equal(seenArticleUrl('https://example.com/short'), '')
+assert.equal(seenArticleUrl(`https://news.google.com/rss/articles/${'a'.repeat(320)}`).includes('news.google.com'), true)
+assert.deepEqual(
+  chargeFirst([
+    { headline: 'Shots fired overnight' },
+    { headline: 'Man charged with murder after the shooting' },
+    { headline: 'Police seek a suspect' },
+  ]).map((story) => story.headline),
+  ['Man charged with murder after the shooting', 'Shots fired overnight', 'Police seek a suspect'],
+)
 assert.equal(QUEUE_TARGET, 20)
 assert.equal(SHORT_REOPEN, 40)
 assert.ok(QUEUE_TARGET > ROUND_SIZE)
@@ -143,6 +153,10 @@ assert.deepEqual(
 assert.deepEqual(
   chargedStory('WGN', 'Sexual assault reported at a house - weekend'),
   { source: 'WGN', headline: 'Sexual assault reported at a house - weekend' },
+)
+assert.deepEqual(
+  chargedStory('Murder charges', 'Man charged with murder after the remains were found - KMOV', true),
+  { source: 'KMOV', headline: 'Man charged with murder after the remains were found' },
 )
 const salt = randomBytes(16)
 const sample = scryptSync('sample-pass', salt, 32, { N: 16384, r: 8, p: 1 })
