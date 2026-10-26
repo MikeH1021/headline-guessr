@@ -557,6 +557,16 @@ button.quiet.stats-open {
 
 .tally.is-snap { animation: shake 0.36s ease; }
 
+.tally .streak-fire {
+    display: inline-block;
+    margin-right: 0.32em;
+    letter-spacing: 0;
+    line-height: 1;
+    transform-origin: 50% 80%;
+}
+
+.tally .streak-fire.is-lit { animation: fire-shake 0.46s ease; }
+
 .page-game .board > .dateline {
     margin-bottom: 6px;
     text-align: center;
@@ -948,6 +958,10 @@ html.js .finish-fallback { display: none; }
 
 .panel a { color: var(--accent); font-weight: 700; }
 
+.score-block > .kicker {
+    margin-bottom: 0.45rem;
+}
+
 .score-block {
     margin-top: 8px;
     padding: 18px 18px 16px;
@@ -965,6 +979,7 @@ html.js .finish-fallback { display: none; }
     align-items: flex-end;
     gap: 6px;
     margin: 0;
+    padding-top: calc(0.2 * clamp(5rem, 22vw, 7.5rem));
     font-family: var(--serif);
     line-height: 0.8;
 }
@@ -2276,6 +2291,14 @@ html.js .finish-fallback { display: none; }
     40% { transform: translateX(8px); }
     60% { transform: translateX(-5px); }
     80% { transform: translateX(4px); }
+}
+
+@keyframes fire-shake {
+    0% { transform: rotate(0deg) scale(0.82); }
+    22% { transform: rotate(-18deg) scale(1.24); }
+    46% { transform: rotate(14deg) scale(1.02); }
+    70% { transform: rotate(-8deg) scale(1.14); }
+    100% { transform: rotate(0deg) scale(1); }
 }
 
 @keyframes tile-in {

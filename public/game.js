@@ -155,14 +155,30 @@
         });
         if (!tally) return;
         var snapped = tally.classList.contains('is-snap');
-        tally.textContent = correctCount + ' right';
+        var streak = run >= 2;
         tally.classList.toggle('is-hot', correctCount > 0);
-        tally.classList.toggle('is-run', run >= 2);
+        tally.classList.toggle('is-run', streak);
         tally.classList.remove('is-pop');
         tally.classList.remove('is-snap');
+        if (streak) {
+            tally.setAttribute('aria-label', 'Streak of ' + run);
+            tally.textContent = '';
+            var fire = document.createElement('span');
+            fire.className = 'streak-fire';
+            fire.setAttribute('aria-hidden', 'true');
+            fire.textContent = '🔥';
+            tally.appendChild(fire);
+            tally.appendChild(document.createTextNode('Streak'));
+        } else {
+            tally.removeAttribute('aria-label');
+            tally.textContent = correctCount + ' right';
+        }
         void tally.offsetWidth;
-        if (run >= 2) tally.classList.add('is-pop');
-        else if (snapped) tally.classList.add('is-snap');
+        if (streak) {
+            tally.classList.add('is-pop');
+            var flame = tally.querySelector('.streak-fire');
+            if (flame) flame.classList.add('is-lit');
+        } else if (snapped) tally.classList.add('is-snap');
     }
 
     function storeRun() {

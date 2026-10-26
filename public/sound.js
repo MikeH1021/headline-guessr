@@ -138,13 +138,14 @@
         var audio = resume();
         if (!audio) return;
         var now = audio.currentTime;
-        // Continues right()'s C-E-G chime: C6, then E6 G6 C7 E7 G7 C8.
-        var ladder = [1318, 1568, 2093, 2637, 3136, 4186];
+        // One sine, tuned as a just interval of the C6 (1046 Hz) that right()
+        // is still holding. A tempered third is about 14 cents sharp against
+        // that note, which is the sour clash. No second voice and no knock.
+        var root = 1046;
+        var ladder = [root * 5 / 4, root * 3 / 2, root * 2, root * 5 / 2, root * 3, root * 4];
         var index = Math.max(0, Math.min(ladder.length - 1, (count | 0) - 2));
-        var top = ladder[index];
         var quiet = index >= 4;
-        voice(audio, now + 0.24, top, 0.18, 'sine', quiet ? 0.032 : 0.048);
-        if (index >= 1) voice(audio, now + 0.24, ladder[index - 1], 0.18, 'sine', quiet ? 0.02 : 0.028);
+        voice(audio, now + 0.24, ladder[index], 0.2, 'sine', quiet ? 0.03 : 0.046);
     }
 
     function best() {
