@@ -532,6 +532,25 @@ button.quiet.stats-open {
 
 .pace-live.is-under { color: var(--yes); }
 
+.pace-live.is-over { color: var(--no); }
+
+.race {
+    margin: 10px 0 0;
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    line-height: 1.2;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.race.is-faster { color: var(--yes); }
+
+.race.is-behind { color: var(--no); }
+
+.race.is-pop { animation: tally-pop 0.38s cubic-bezier(0.22, 1, 0.36, 1); }
+
 .tally {
     grid-column: 3;
     grid-row: 1;

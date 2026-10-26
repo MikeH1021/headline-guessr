@@ -91,7 +91,11 @@
         var seconds = Math.max(0, Math.floor(ms / 1000));
         node.hidden = false;
         node.textContent = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
-        node.classList.toggle('is-under', index === total - 1 && ahead(ms) >= 1);
+        var up = index === total - 1 && ahead(ms) >= 1;
+        var back = index === total - 1 && !up && behind(ms) >= 1;
+        node.classList.toggle('is-under', up);
+        node.classList.toggle('is-over', back);
+        paintRace();
     }
 
     function startClock() {
@@ -117,6 +121,50 @@
         if (!(ghostMs >= 1000) || !(ms > 0) || ms >= ghostMs) return 0;
         var gap = Math.round(ghostMs / 1000) - Math.round(ms / 1000);
         return gap >= 1 ? gap : 0;
+    }
+
+    function behind(ms) {
+        if (!(ghostMs >= 1000) || !(ms > 0) || ms <= ghostMs) return 0;
+        var gap = Math.round(ms / 1000) - Math.round(ghostMs / 1000);
+        return gap >= 1 ? gap : 0;
+    }
+
+    function paintRace() {
+        var node = document.getElementById('race');
+        if (!node) {
+            var progress = document.querySelector('.progress');
+            if (!progress) return;
+            node = document.createElement('p');
+            node.className = 'race';
+            node.id = 'race';
+            node.hidden = true;
+            progress.insertAdjacentElement('beforebegin', node);
+        }
+        var saved = readClock();
+        var ms = saved.runningSince && clockHere(saved) ? liveMs(saved) : 0;
+        var last = index === total - 1;
+        var up = last ? ahead(ms) : 0;
+        var back = last && !up ? behind(ms) : 0;
+        var label = up >= 1 ? up + 's faster' : (back >= 1 ? back + 's behind' : '');
+        if (!label) {
+            node.hidden = true;
+            node.classList.remove('is-faster');
+            node.classList.remove('is-behind');
+            node.removeAttribute('data-side');
+            return;
+        }
+        var side = up >= 1 ? 'up' : 'back';
+        var flipped = node.getAttribute('data-side') !== side;
+        node.hidden = false;
+        node.textContent = label;
+        node.setAttribute('data-side', side);
+        node.classList.toggle('is-faster', side === 'up');
+        node.classList.toggle('is-behind', side === 'back');
+        if (flipped) {
+            node.classList.remove('is-pop');
+            void node.offsetWidth;
+            node.classList.add('is-pop');
+        }
     }
 
     function storePace() {
@@ -146,6 +194,7 @@
             pip.classList.toggle('is-current', pipIndex === index);
             pip.classList.toggle('is-last', last && pipIndex === index && !pip.classList.contains('is-right') && !pip.classList.contains('is-wrong'));
         });
+        paintRace();
     }
 
     function paintRun() {
