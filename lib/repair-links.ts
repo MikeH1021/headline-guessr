@@ -1,11 +1,14 @@
 import { FEED_SCAN } from './constants'
+import { publisherUrl } from './google-news'
 import { jobSnapshot } from './job'
 import { storiesFrom } from './rss'
 import { articleLink, articleUrls, rememberArticle } from './seen'
 import { applyCardUrls, currentFeeds, metaValue, setMeta, type StoredRound } from './store'
-import { articleHref, headlineKey, matchFeedUrl } from './text'
+import { articleHref, headlineKey, isGoogleNewsUrl, matchFeedUrl, preferArticleUrl } from './text'
 import type { RoundCard } from './types'
 import type { Feed } from './feeds'
+
+const DECODE_AT_ONCE = 4
 
 async function scanFeeds(cards: RoundCard[], feeds: Feed[]) {
   const found = new Map<string, string>()
@@ -33,26 +36,44 @@ function withUrls(round: StoredRound, urls: Map<string, string>) {
   return {
     ...round,
     cards: round.cards.map((card) => {
-      const url = urls.get(headlineKey(card.headline))
-      return url && !articleHref(card.url) ? { ...card, url } : card
+      const next = preferArticleUrl(card.url, urls.get(headlineKey(card.headline)) || '')
+      return next ? { ...card, url: next } : card
     }),
   }
 }
 
+async function openPublishers(pending: { headline: string; url: string }[], found: Map<string, string>) {
+  let index = 0
+  async function worker() {
+    while (index < pending.length) {
+      const item = pending[index]
+      index += 1
+      const opened = await publisherUrl(item.url)
+      if (!opened) continue
+      found.set(headlineKey(item.headline), opened)
+      rememberArticle(item.headline, opened)
+    }
+  }
+  const workers = Math.min(DECODE_AT_ONCE, pending.length)
+  if (!workers) return
+  await Promise.all(Array.from({ length: workers }, () => worker()))
+}
+
 export async function repairRoundLinks(round: StoredRound | null) {
   if (!round?.cards.length) return round
-  const missing = round.cards.filter((card) => headlineKey(card.headline) && !articleHref(card.url))
-  if (!missing.length) return round
+  const blanks = round.cards.filter((card) => headlineKey(card.headline) && !articleHref(card.url))
+  const googles = round.cards.filter((card) => isGoogleNewsUrl(card.url))
+  if (!blanks.length && !googles.length) return round
   const found = new Map<string, string>()
   const remembered = articleUrls()
-  for (const card of missing) {
+  for (const card of [...blanks, ...googles]) {
     const key = headlineKey(card.headline)
-    const url = articleLink(card.headline) || remembered.get(key) || ''
-    if (!url) continue
+    const url = preferArticleUrl(articleLink(card.headline), remembered.get(key) || '')
+    if (!url || isGoogleNewsUrl(url)) continue
     found.set(key, url)
     rememberArticle(card.headline, url)
   }
-  let still = missing.filter((card) => !found.has(headlineKey(card.headline)))
+  let still = blanks.filter((card) => !found.has(headlineKey(card.headline)))
   const running = jobSnapshot().running
   if (still.length && !running) {
     const feeds = currentFeeds()
@@ -69,7 +90,35 @@ export async function repairRoundLinks(round: StoredRound | null) {
       setMeta(stamp, round.refreshedOn)
     }
   }
-  if (!found.size) return round
-  if (running) return withUrls(round, found)
-  return applyCardUrls(round.refreshedOn, found) || withUrls(round, found)
+  if (!running) {
+    const pending: { headline: string; url: string }[] = []
+    const queued = new Set<string>()
+    for (const card of googles) {
+      const key = headlineKey(card.headline)
+      if (!key || found.has(key) || queued.has(key)) continue
+      const url = articleHref(card.url)
+      if (!url) continue
+      queued.add(key)
+      pending.push({ headline: card.headline, url })
+    }
+    for (const [key, url] of found) {
+      if (!isGoogleNewsUrl(url) || queued.has(key)) continue
+      const card = round.cards.find((item) => headlineKey(item.headline) === key)
+      if (!card) continue
+      queued.add(key)
+      pending.push({ headline: card.headline, url })
+    }
+    await openPublishers(pending, found)
+  }
+  const useful = new Map<string, string>()
+  for (const card of round.cards) {
+    const key = headlineKey(card.headline)
+    const next = found.get(key) || ''
+    if (!key || !next) continue
+    if (preferArticleUrl(card.url, next) === articleHref(card.url)) continue
+    useful.set(key, next)
+  }
+  if (!useful.size) return round
+  if (running) return withUrls(round, useful)
+  return applyCardUrls(round.refreshedOn, useful) || withUrls(round, useful)
 }

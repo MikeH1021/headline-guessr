@@ -16,7 +16,7 @@ export function feedUrl(value: unknown) {
   return url
 }
 
-function privateHost(hostname: string) {
+export function isPrivateHost(hostname: string) {
   const host = hostname.replace(/^\[|\]$/g, '').toLowerCase().replace(/\.$/, '')
   if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return true
   if (host.includes(':')) return true
@@ -44,7 +44,7 @@ export function publicFeedUrl(value: unknown) {
   }
   if (parsed.username || parsed.password) return ''
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return ''
-  if (privateHost(parsed.hostname)) return ''
+  if (isPrivateHost(parsed.hostname)) return ''
   return url
 }
 

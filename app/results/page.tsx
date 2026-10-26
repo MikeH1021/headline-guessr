@@ -6,7 +6,7 @@ import { currentSession } from '@/lib/session'
 import { repairRoundLinks } from '@/lib/repair-links'
 import { articleUrls } from '@/lib/seen'
 import { readArchive, readRound, saveSession } from '@/lib/store'
-import { articleHost, articleHref, headlineKey, isBanner } from '@/lib/text'
+import { articleHost, articleHref, headlineKey, isBanner, isGoogleNewsUrl, preferArticleUrl } from '@/lib/text'
 
 export const metadata = { title: 'Results — Headline Guessr' }
 
@@ -37,15 +37,27 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
     if (href && key) savedUrls.set(key, href)
   }
   const remembered = stories.some((story) => {
-    const key = headlineKey(story?.headline || '')
-    return story && !articleHref(story.url) && !(key && savedUrls.get(key))
+    if (!story) return false
+    const saved = savedUrls.get(headlineKey(story.headline)) || ''
+    const href = preferArticleUrl(story.url, saved)
+    return !href || isGoogleNewsUrl(href)
   })
     ? articleUrls()
     : new Map<string, string>()
   const hrefFor = (story: { headline: string; url?: string }) => {
     const key = headlineKey(story.headline)
-    return articleHref(story.url) || (key && savedUrls.get(key)) || (key && remembered.get(key)) || ''
+    return preferArticleUrl(story.url, key && savedUrls.get(key), key && remembered.get(key))
   }
+  let linked = false
+  for (const story of stories) {
+    if (!story?.headline) continue
+    const href = hrefFor(story)
+    if (!href || href === (story.url || '')) continue
+    if (story.url && !isGoogleNewsUrl(story.url)) continue
+    story.url = href
+    linked = true
+  }
+  if (linked) saveSession(id, data)
   const again = day ? `/game?day=${day}` : '/game'
   const perfect = result.score === total && total > 0
   return (

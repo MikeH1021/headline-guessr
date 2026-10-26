@@ -6,7 +6,7 @@ import { canonicalEthnicity } from './ethnicity'
 import { defaultFeeds, feedName, feedUrl, parseFeeds, publicFeedUrl, validRefreshTime, type Feed } from './feeds'
 import { percentileRank } from './scoring'
 import { markSeen } from './seen'
-import { articleHref, cleanTitle, headlineKey } from './text'
+import { articleHref, cleanTitle, headlineKey, preferArticleUrl } from './text'
 import { localISO } from './time'
 import type { LastResult, QueueCard, RoundCard, SessionData } from './types'
 
@@ -169,12 +169,11 @@ export function applyCardUrls(day: string, urls: Map<string, string>) {
   if (!source) return null
   let changed = false
   const cards = source.cards.map((card) => {
-    const href = articleHref(card.url)
-    if (href) return { ...card, url: href }
-    const url = urls.get(headlineKey(card.headline)) || ''
-    if (!url) return card
+    const current = articleHref(card.url)
+    const next = preferArticleUrl(card.url, urls.get(headlineKey(card.headline)) || '')
+    if (!next || next === current) return current ? { ...card, url: current } : card
     changed = true
-    return { ...card, url }
+    return { ...card, url: next }
   })
   if (!changed) return { ...source, cards }
   if (round?.refreshedOn === day) replaceCurrentCards(cards)

@@ -1,6 +1,6 @@
 import { db } from './db'
 import { feedUrl } from './feeds'
-import { articleHref, headlineKey, seenArticleUrl } from './text'
+import { articleHref, headlineKey, isGoogleNewsUrl, seenArticleUrl } from './text'
 
 export function seenKeys(headline: string, url: string) {
   const keys: string[] = []
@@ -37,6 +37,8 @@ export function rememberArticle(headline: string, url: string) {
   const key = headlineKey(headline)
   const href = articleHref(url)
   if (!key || !href) return
+  const existing = articleLink(headline)
+  if (existing && isGoogleNewsUrl(href) && !isGoogleNewsUrl(existing)) return
   db().prepare(
     `INSERT INTO article_links (headline_key, url) VALUES (?, ?)
      ON CONFLICT(headline_key) DO UPDATE SET url = excluded.url`,

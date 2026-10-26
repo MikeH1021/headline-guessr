@@ -15,11 +15,12 @@ import {
 import { interleave, sameEvent } from './deal'
 import { HeadlineError } from './errors'
 import { canonicalEthnicity } from './ethnicity'
+import { publisherUrl } from './google-news'
 import { grok } from './grok'
 import { jobLog, jobSet, jobSnapshot, markRefreshFinished, markRefreshStarted } from './job'
 import { storiesFrom, storyCopy, takeUnseen, type GatheredStory } from './rss'
 import { markSeen, seenStatuses } from './seen'
-import { chargeFirst, chargeHeadline, chargedStory, headlineKey } from './text'
+import { articleHost, chargeFirst, chargeHeadline, chargedStory, headlineKey } from './text'
 import { appendQueue, currentFeeds, currentPrompt, currentRefreshTime, metaValue, readQueue, readRound, saveRound, setMeta, takeRound } from './store'
 import { localISO } from './time'
 
@@ -137,11 +138,14 @@ async function classifyOne(story: GatheredStory) {
     jobLog('Not stated. Skipped.')
     return 'done'
   }
-  const card = { ...answered[0], url: story.url || '' }
+  const opened = await publisherUrl(story.url)
+  const url = opened || story.url || ''
+  const card = { ...answered[0], url }
   const { length, added, duplicate } = appendQueue(card)
-  markSeen(story.headline, story.url, 'queued')
+  markSeen(story.headline, url, 'queued')
   jobSet({ kept: length })
-  if (added) jobLog(`Stated: ${card.ethnicity}. Queue has ${length}.`)
+  const host = opened ? articleHost(opened) : ''
+  if (added) jobLog(host ? `Stated: ${card.ethnicity}. Publisher: ${host}. Queue has ${length}.` : `Stated: ${card.ethnicity}. Queue has ${length}.`)
   else jobLog(duplicate ? 'Same incident as a story already queued.' : 'Already in the queue.')
   return 'done'
 }

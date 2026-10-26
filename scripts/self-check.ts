@@ -5,6 +5,7 @@ import path from 'path'
 import { randomBytes, scryptSync } from 'crypto'
 import { dealQueue, interleave, sameEvent } from '../lib/deal'
 import { feedName, feedUrl, publicFeedUrl } from '../lib/feeds'
+import { googleArticleId, publisherFromBatch } from '../lib/google-news'
 import { passwordMatches } from '../lib/password'
 import { publicOrigin } from '../lib/public-url'
 import { accuracyPercentile, median, ordinal, paceLabel, percentileRank, pythonRound, rankForScore, rankTier } from '../lib/scoring'
@@ -20,7 +21,7 @@ import {
 } from '../lib/xai-oauth'
 import { articleText, storiesFromRss, takeUnseen } from '../lib/rss'
 import { DEFAULT_FEEDS, QUEUE_TARGET, ROUND_SIZE, SHORT_REOPEN } from '../lib/constants'
-import { articleHost, articleHref, chargeFirst, chargeHeadline, chargedStory, headlineKey, matchFeedUrl, seenArticleUrl } from '../lib/text'
+import { articleHost, articleHref, chargeFirst, chargeHeadline, chargedStory, headlineKey, isGoogleNewsUrl, matchFeedUrl, preferArticleUrl, seenArticleUrl } from '../lib/text'
 
 assert.equal(pythonRound(12.5), 12)
 assert.equal(pythonRound(13.5), 14)
@@ -139,6 +140,24 @@ assert.equal(matchFeedUrl('Chicago man charged in robbery', 'WGN', 'https://wgnt
 assert.equal(matchFeedUrl('Man charged with murder after the warehouse shooting', 'Murder charges', 'https://news.google.com/rss/search?q=murder', [
   { headline: 'Man charged with murder after the warehouse shooting - KMOV', url: 'https://news.google.com/rss/articles/warehouse' },
 ]), 'https://news.google.com/rss/articles/warehouse')
+const googleId = `CBMi${'a'.repeat(24)}`
+const googleToken = `https://news.google.com/rss/articles/${googleId}?oc=5`
+const publisher = 'https://www.14news.com/2026/10/25/man-arrested-murder-charge-after-deadly-shooting-madisonville/'
+assert.equal(googleArticleId(googleToken), googleId)
+assert.equal(googleArticleId('https://wgntv.com/news/story'), '')
+assert.equal(googleArticleId('https://news.google.com/rss/articles/short'), '')
+assert.equal(googleArticleId(`https://evil.example/rss/articles/${googleId}`), '')
+assert.equal(isGoogleNewsUrl(googleToken), true)
+assert.equal(isGoogleNewsUrl(publisher), false)
+assert.equal(preferArticleUrl(googleToken, publisher), publisher)
+assert.equal(preferArticleUrl('https://wgntv.com/news/story', publisher), 'https://wgntv.com/news/story')
+assert.equal(preferArticleUrl(googleToken, `https://news.google.com/rss/articles/${'b'.repeat(24)}`, publisher), publisher)
+const batch = `)]}'\n${JSON.stringify([['wrb.fr', 'Fbv4je', JSON.stringify(['garturlres', publisher, 1])]])}`
+assert.equal(publisherFromBatch(batch), publisher)
+assert.equal(publisherFromBatch(JSON.stringify([['wrb.fr', 'Fbv4je', JSON.stringify(['garturlres', 'javascript:alert(1)', 1])]])), '')
+assert.equal(publisherFromBatch(JSON.stringify([['wrb.fr', 'Fbv4je', JSON.stringify(['garturlres', 'http://127.0.0.1/secret', 1])]])), '')
+assert.equal(publisherFromBatch(JSON.stringify([['wrb.fr', 'Fbv4je', JSON.stringify(['garturlres', 'https://news.google.com/rss/articles/' + googleId, 1])]])), '')
+assert.equal(publisherFromBatch(JSON.stringify([['https://evil.example/phish']])), '')
 assert.equal(DEFAULT_FEEDS.length, 44)
 assert.deepEqual(DEFAULT_FEEDS.slice(-4).map(([name]) => name), ['Charged', 'Murder charges', 'Attempted murder', 'Kidnapping'])
 assert.equal(publicFeedUrl(DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1]), DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1])
@@ -278,8 +297,8 @@ async function checkImport() {
   assert.equal(buildRound()[0].ethnicity, 'White')
   assert.equal(readRound()?.cards[0].url, 'https://example.com/robbery')
 
-  const { saveRound, readArchive, listArchives, addHeadline, useQueued, dropRoundCard, readQueue: queueNow } = await import('../lib/store')
-  const { hasSeen, markSeen } = await import('../lib/seen')
+  const { saveRound, readArchive, listArchives, addHeadline, useQueued, dropRoundCard, readQueue: queueNow, applyCardUrls } = await import('../lib/store')
+  const { hasSeen, markSeen, articleLink } = await import('../lib/seen')
   saveRound(
     [{ source: 'CBS', headline: 'First saved robbery downtown', ethnicity: 'White', url: 'javascript:alert(1)' }],
     new Date(2026, 9, 20, 12, 0, 0),
@@ -348,9 +367,24 @@ async function checkImport() {
   assert.equal(urls.get(headlineKey('Second headline for the link')), 'https://example.com/second-story')
   markSeen('Queued headline with a stored link', 'https://wgntv.com/news/queued-story', 'queued')
   assert.equal(articleUrls().get(headlineKey('Queued headline with a stored link')), 'https://wgntv.com/news/queued-story')
+  const storedGoogle = `https://news.google.com/rss/articles/${'c'.repeat(40)}`
+  markSeen('Google then publisher', storedGoogle, 'queued')
+  assert.equal(articleLink('Google then publisher'), storedGoogle)
+  markSeen('Google then publisher', 'https://www.14news.com/story', 'queued')
+  assert.equal(articleLink('Google then publisher'), 'https://www.14news.com/story')
+  markSeen('Google then publisher', storedGoogle, 'queued')
+  assert.equal(articleLink('Google then publisher'), 'https://www.14news.com/story')
   assert.equal(dropRoundCard(added ? added.headline.toLowerCase() : '', false), 'Removed from today’s round.')
   assert.equal(readArchive('2026-10-21')?.cards.length, 1)
   assert.equal(buildRound('2026-10-20')[0].source, 'CBS')
+  saveRound(
+    [{ source: 'KMOV', headline: 'Decode this charge', ethnicity: 'White', url: storedGoogle }],
+    new Date(2026, 9, 22, 12, 0, 0),
+  )
+  applyCardUrls('2026-10-22', new Map([[headlineKey('Decode this charge'), 'https://www.14news.com/story']]))
+  assert.equal(readArchive('2026-10-22')?.cards[0].url, 'https://www.14news.com/story')
+  applyCardUrls('2026-10-22', new Map([[headlineKey('Decode this charge'), storedGoogle]]))
+  assert.equal(readArchive('2026-10-22')?.cards[0].url, 'https://www.14news.com/story')
 
   const session = await import('../lib/xai-session')
   const { XAI_OAUTH_CLIENT_ID } = await import('../lib/xai-oauth')

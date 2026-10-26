@@ -102,6 +102,28 @@ export function matchFeedUrl(headline: string, feedName: string, page: string, s
   return ''
 }
 
+export function isGoogleNewsUrl(value: unknown) {
+  const href = articleHref(value)
+  if (!href) return false
+  try {
+    const host = new URL(href).hostname.toLowerCase().replace(/\.$/, '')
+    return host === 'news.google.com' || host.endsWith('.news.google.com')
+  } catch {
+    return false
+  }
+}
+
+export function preferArticleUrl(...candidates: unknown[]) {
+  let google = ''
+  for (const candidate of candidates) {
+    const href = articleHref(candidate)
+    if (!href) continue
+    if (!isGoogleNewsUrl(href)) return href
+    if (!google) google = href
+  }
+  return google
+}
+
 export function articleHost(href: string) {
   try {
     const host = new URL(href).hostname.replace(/^www\./, '')
