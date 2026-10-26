@@ -1046,6 +1046,16 @@ html.js .finish-fallback { display: none; }
     text-transform: uppercase;
 }
 
+.one-short {
+    margin: 8px 0 0;
+    color: var(--accent);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.page-home .one-short { margin: -6px 0 14px; }
+
 .best-run,
 .new-best {
     margin: 8px 0 0;
@@ -1440,9 +1450,15 @@ html.js .finish-fallback { display: none; }
 .next-round time { font-variant-numeric: tabular-nums; }
 
 .stamp .kicker,
-.stamp .perfect { position: relative; z-index: 1; }
+.stamp .perfect,
+.stamp .one-short { position: relative; z-index: 1; }
 
 .stamp .perfect { margin-top: 0; }
+
+.stamp .one-short {
+    margin-top: 4px;
+    animation: tally-pop 0.42s 0.12s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 
 .share-tile {
     display: grid;
@@ -1464,6 +1480,10 @@ html.js .finish-fallback { display: none; }
 .share-tile.is-right::after { content: "✓"; }
 .share-tile.is-wrong { background: var(--no); color: var(--no-ink); animation-name: share-no; }
 .share-tile.is-wrong::after { content: "×"; }
+
+.share-tile.is-wrong.is-cost {
+    box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.14), 0 0 0 2px var(--paper), 0 0 0 4px var(--accent);
+}
 
 .pace {
     margin: 10px 0 0;
@@ -1882,6 +1902,8 @@ html.js .finish-fallback { display: none; }
     box-shadow: inset 4px 0 0 var(--no);
 }
 
+.review.is-wrong.is-cost { box-shadow: inset 4px 0 0 var(--accent); }
+
 .review h2 {
     grid-column: 1;
     margin: 6px 0 10px;
@@ -1942,6 +1964,7 @@ html.js .finish-fallback { display: none; }
 
 .review.is-right .verdict { color: var(--good); }
 .review.is-wrong .verdict { color: var(--bad); }
+.review.is-cost .verdict { color: var(--accent); }
 
 .guess, .answer { margin: 0; }
 .answer { color: var(--ink-soft); }

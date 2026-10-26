@@ -60,6 +60,8 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   if (linked) saveSession(id, data)
   const again = day ? `/game?day=${day}` : '/game'
   const perfect = result.score === total && total > 0
+  const missCount = result.userAnswers.filter((guess, index) => guess !== (answers[index] || '')).length
+  const oneShort = !perfect && total > 1 && missCount === 1
   const againLabel = perfect ? 'Hold the sweep' : result.score > 0 ? `Beat ${result.score}` : 'Play again'
   return (
     <div className="frame">
@@ -77,15 +79,19 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
           </p>
           <p className="pace" hidden></p>
           {perfect && <p className="perfect">Clean sweep</p>}
+          {oneShort && <p className="one-short">One short</p>}
           <div className="share-bar">
             <div className="share" aria-hidden="true">
-              {result.userAnswers.map((guess, index) => (
-                <span
-                  key={index}
-                  className={`share-tile ${answers[index] === guess ? 'is-right' : 'is-wrong'}`}
-                  style={{ animationDelay: `${index * 70}ms` }}
-                />
-              ))}
+              {result.userAnswers.map((guess, index) => {
+                const right = answers[index] === guess
+                return (
+                  <span
+                    key={index}
+                    className={`share-tile ${right ? 'is-right' : 'is-wrong'}${oneShort && !right ? ' is-cost' : ''}`}
+                    style={{ animationDelay: `${index * 70}ms` }}
+                  />
+                )
+              })}
             </div>
             <button type="button" className="copy-result" id="copy-result">Copy result</button>
           </div>
@@ -137,10 +143,11 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
             const answer = answers[index] || ''
             const story = stories[index]
             const right = guess === answer
+            const cost = oneShort && !right
             const href = story ? hrefFor(story) : ''
             const host = href ? articleHost(href) : ''
             return (
-              <li key={index} className={`review ${right ? 'is-right' : 'is-wrong'}`} style={{ animationDelay: `${index * 50}ms` }}>
+              <li key={index} className={`review ${right ? 'is-right' : 'is-wrong'}${cost ? ' is-cost' : ''}`} style={{ animationDelay: `${index * 50}ms` }}>
                 {story && (
                   <>
                     <p className="source">
@@ -167,7 +174,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                     </h2>
                   </>
                 )}
-                <p className="verdict">{right ? 'Right' : 'Wrong'}</p>
+                <p className="verdict">{right ? 'Right' : cost ? 'The miss' : 'Wrong'}</p>
                 {right ? (
                   <p className="guess"><strong>{guess}</strong></p>
                 ) : (
@@ -189,7 +196,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
           <p className="next-round" data-at={round.nextRoundIso}>Next round <time></time></p>
         </div>
       </main>
-      <BootScripts src="/sound.js?v=6,/results.js" />
+      <BootScripts src="/sound.js?v=6,/results.js?v=2" />
     </div>
   )
 }

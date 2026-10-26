@@ -587,6 +587,12 @@
         note.className = 'stamp-line';
         note.textContent = line || '';
         stamp.appendChild(score);
+        if (correctCount === total - 1 && total > 1) {
+            var shortLine = document.createElement('p');
+            shortLine.className = 'one-short';
+            shortLine.textContent = 'One short';
+            stamp.appendChild(shortLine);
+        }
         try {
             var chase = JSON.parse(sessionStorage.getItem('hg-chase') || '{}');
             if (chase.day === roundDay) {

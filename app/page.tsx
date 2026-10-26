@@ -58,6 +58,7 @@ export default async function HomePage() {
               </div>
               <p className={`played-rank is-${played.tierId}`}>{played.title}</p>
               <p className="played-score">{played.score}/{played.total}</p>
+              {played.total > 1 && played.score === played.total - 1 && <p className="one-short">One short</p>}
               <p className="pace" hidden></p>
               <div
                 id="today-play"

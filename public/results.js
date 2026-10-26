@@ -36,6 +36,7 @@
             var bestRun = document.querySelector('.score-block .best-run');
             var fresh = document.querySelector('.score-block .new-best');
             var peak = document.querySelector('.score-block .peak-round');
+            var oneShort = document.querySelector('.score-block .one-short');
             var streak = document.querySelector('.streak');
             var scoreLine = (number ? (number.getAttribute('data-score') || number.textContent) : '') + (of ? of.textContent.trim() : '');
             if (pace && !pace.hidden && pace.textContent.trim()) scoreLine += ' ' + pace.textContent.trim();
@@ -43,6 +44,7 @@
                 'Headline Guessr',
                 date ? date.textContent.trim() : '',
                 scoreLine,
+                oneShort ? oneShort.textContent.trim() : '',
                 fresh ? fresh.textContent.trim() : '',
                 peak ? peak.textContent.trim() : '',
                 tiles,
