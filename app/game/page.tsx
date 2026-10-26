@@ -1,9 +1,9 @@
 import { BootScripts } from '@/components/boot-scripts'
 import { ETHNICITIES } from '@/lib/constants'
 import { HeadlineError } from '@/lib/errors'
-import { buildRound, playableDay, resultForDay, roundContext } from '@/lib/roundview'
+import { buildRound, liveRound, playableDay, resultForDay, roundContext } from '@/lib/roundview'
 import { currentSession } from '@/lib/session'
-import { readArchive, readRound, saveSession } from '@/lib/store'
+import { readArchive, saveSession } from '@/lib/store'
 import { articleHref, isBanner } from '@/lib/text'
 
 export const metadata = { title: 'Play — Headline Guessr' }
@@ -12,7 +12,7 @@ export default async function GamePage({ searchParams }: { searchParams: Promise
   const params = await searchParams
   const day = playableDay(params.day)
   const { id, data } = await currentSession()
-  const saved = day ? readArchive(day) : readRound()
+  const saved = day ? readArchive(day) : liveRound()
   const round = roundContext(saved)
   let error = ''
   let priorScore: number | null = null

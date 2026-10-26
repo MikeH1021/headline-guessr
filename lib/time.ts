@@ -30,6 +30,19 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
+export function roundIsCurrent(refreshedOn: string, now = new Date(), refreshTime = '06:00') {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(refreshedOn)) return false
+  const today = localISO(now)
+  if (refreshedOn >= today) return true
+  const [hour, minute] = refreshTime.split(':').map((part) => Number(part))
+  const scheduled = new Date(now)
+  scheduled.setHours(hour || 0, minute || 0, 0, 0)
+  if (now >= scheduled) return false
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  return refreshedOn === localISO(yesterday)
+}
+
 export function roundLabel(raw: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return { label: raw, roundDay: '' }
   const [year, month, day] = raw.split('-').map(Number)

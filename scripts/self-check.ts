@@ -10,7 +10,7 @@ import { passwordMatches } from '../lib/password'
 import { publicOrigin } from '../lib/public-url'
 import { accuracyPercentile, median, ordinal, paceLabel, percentileRank, pythonRound, rankForScore, rankTier } from '../lib/scoring'
 import { canonicalEthnicity } from '../lib/ethnicity'
-import { shortRoundLabel } from '../lib/time'
+import { roundIsCurrent, shortRoundLabel } from '../lib/time'
 import {
   XAI_OAUTH_DISCOVERY_URL,
   devicePollKind,
@@ -159,6 +159,12 @@ assert.equal(publisherFromBatch(JSON.stringify([['wrb.fr', 'Fbv4je', JSON.string
 assert.equal(publisherFromBatch(JSON.stringify([['wrb.fr', 'Fbv4je', JSON.stringify(['garturlres', 'https://news.google.com/rss/articles/' + googleId, 1])]])), '')
 assert.equal(publisherFromBatch(JSON.stringify([['https://evil.example/phish']])), '')
 assert.equal(DEFAULT_FEEDS.length, 44)
+const mondayMorning = new Date(2026, 9, 26, 5, 30, 0)
+const mondayAfter = new Date(2026, 9, 26, 8, 0, 0)
+assert.equal(roundIsCurrent('2026-10-25', mondayMorning, '06:00'), true)
+assert.equal(roundIsCurrent('2026-10-25', mondayAfter, '06:00'), false)
+assert.equal(roundIsCurrent('2026-10-26', mondayAfter, '06:00'), true)
+assert.equal(roundIsCurrent('2026-10-24', mondayMorning, '06:00'), false)
 assert.deepEqual(DEFAULT_FEEDS.slice(-4).map(([name]) => name), ['Charged', 'Murder charges', 'Attempted murder', 'Kidnapping'])
 assert.equal(publicFeedUrl(DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1]), DEFAULT_FEEDS[DEFAULT_FEEDS.length - 1][1])
 assert.equal(seenArticleUrl('https://example.com/short'), '')
@@ -294,7 +300,7 @@ async function checkImport() {
   const { buildRound } = await import('../lib/roundview')
   assert.equal(currentModel(), 'grok-4.3')
   assert.equal(readRound()?.cards.length, 1)
-  assert.equal(buildRound()[0].ethnicity, 'White')
+  assert.throws(() => buildRound(), (err: unknown) => err instanceof Error && err.message === 'Today’s round is not ready yet.')
   assert.equal(readRound()?.cards[0].url, 'https://example.com/robbery')
 
   const { saveRound, readArchive, listArchives, addHeadline, useQueued, dropRoundCard, readQueue: queueNow, applyCardUrls } = await import('../lib/store')

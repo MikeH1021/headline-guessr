@@ -3,7 +3,7 @@ import { HeadlineError } from './errors'
 import { jobSnapshot } from './job'
 import { ordinal, rankForScore } from './scoring'
 import { currentRefreshTime, readArchive, readRound, roundStats, type StoredRound } from './store'
-import { localDateTimeISO, localISO, roundLabel } from './time'
+import { localDateTimeISO, localISO, roundIsCurrent, roundLabel } from './time'
 import type { LastResult, SessionData } from './types'
 
 export function nextRoundAt() {
@@ -16,10 +16,16 @@ export function nextRoundAt() {
   return target
 }
 
-export function roundContext(round: StoredRound | null = readRound()) {
-  const raw = round?.refreshedOn || ''
+export function liveRound(now = new Date()) {
+  const round = readRound()
+  if (!round?.cards.length) return null
+  return roundIsCurrent(round.refreshedOn, now, currentRefreshTime()) ? round : null
+}
+
+export function roundContext(round: StoredRound | null = liveRound()) {
+  const raw = round?.refreshedOn || localISO()
   const cards = round?.cards || []
-  const labeled = raw ? roundLabel(raw) : { label: '', roundDay: '' }
+  const labeled = roundLabel(raw)
   return {
     roundLabel: labeled.label,
     roundDay: labeled.roundDay,
@@ -48,7 +54,7 @@ export function buildRound(day = '') {
     if (!saved?.cards.length) throw new HeadlineError('That day is not saved.')
     return saved.cards
   }
-  const round = readRound()
+  const round = liveRound()
   const cards = round?.cards || []
   if (cards.length) return cards
   if (jobSnapshot().running) {
@@ -61,7 +67,7 @@ export function buildRound(day = '') {
 }
 
 export function todayPlay(session: SessionData) {
-  const current = readRound()
+  const current = liveRound()
   const today = current?.refreshedOn || ''
   const result = today ? resultForDay(session, today) : null
   if (!current || !result || !today) return null
