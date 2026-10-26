@@ -111,6 +111,9 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
               <p className="rank-note">Out of {result.plays} plays of this round.</p>
             </>
           )}
+          <div className="actions score-again">
+            <a className={`play-btn${againLabel === 'Play again' ? '' : ' is-chase'}`} href={again}>{againLabel}</a>
+          </div>
         </div>
         {result.counts.length > 0 && (
           <ol className="dist" aria-label="Score distribution">
