@@ -189,7 +189,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
           <p className="next-round" data-at={round.nextRoundIso}>Next round <time></time></p>
         </div>
       </main>
-      <BootScripts src="/sound.js?v=5,/results.js" />
+      <BootScripts src="/sound.js?v=6,/results.js" />
     </div>
   )
 }

@@ -138,14 +138,19 @@
         var audio = resume();
         if (!audio) return;
         var now = audio.currentTime;
-        // One sine, tuned as a just interval of the C6 (1046 Hz) that right()
-        // is still holding. A tempered third is about 14 cents sharp against
-        // that note, which is the sour clash. No second voice and no knock.
-        var root = 1046;
-        var ladder = [root * 5 / 4, root * 3 / 2, root * 2, root * 5 / 2, root * 3, root * 4];
-        var index = Math.max(0, Math.min(ladder.length - 1, (count | 0) - 2));
-        var quiet = index >= 4;
-        voice(audio, now + 0.24, ladder[index], 0.2, 'sine', quiet ? 0.03 : 0.046);
+        // C major arpeggio, justly tuned to the chime's C. Two correct plays
+        // the first two notes (C–E), three plays C–E–G, four plays C–E–G–C.
+        var root = 523;
+        var steps = [1, 5 / 4, 3 / 2];
+        var notes = Math.max(2, Math.min(10, count | 0));
+        var gap = 0.09;
+        for (var i = 0; i < notes; i++) {
+            var freq = root * steps[i % 3] * Math.pow(2, Math.floor(i / 3));
+            var peak = Math.min(0.05, 0.034 + i * 0.003);
+            if (freq > 2200) peak *= 0.7;
+            if (freq > 3000) peak *= 0.6;
+            voice(audio, now + 0.26 + i * gap, freq, 0.13, 'sine', peak);
+        }
     }
 
     function best() {
