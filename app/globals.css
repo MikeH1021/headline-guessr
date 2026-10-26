@@ -731,15 +731,21 @@ html.js .card.is-leaving {
 
 html.js .choices { display: flex; }
 
-html.js .card:first-child.is-active:not(.is-revealed) .choice {
-    animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+html.js .card.is-active:not(.is-revealed) .choice span,
+html.js .card.is-active:not(.is-revealed) .choice kbd {
+    animation: settle 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-html.js .card:first-child.is-active:not(.is-revealed) .choice:nth-child(1) { animation-delay: 0.04s; }
-html.js .card:first-child.is-active:not(.is-revealed) .choice:nth-child(2) { animation-delay: 0.08s; }
-html.js .card:first-child.is-active:not(.is-revealed) .choice:nth-child(3) { animation-delay: 0.12s; }
-html.js .card:first-child.is-active:not(.is-revealed) .choice:nth-child(4) { animation-delay: 0.16s; }
-html.js .card:first-child.is-active:not(.is-revealed) .choice:nth-child(5) { animation-delay: 0.2s; }
+html.js .card.is-active:not(.is-revealed) .choice:nth-child(1) span,
+html.js .card.is-active:not(.is-revealed) .choice:nth-child(1) kbd { animation-delay: 0.02s; }
+html.js .card.is-active:not(.is-revealed) .choice:nth-child(2) span,
+html.js .card.is-active:not(.is-revealed) .choice:nth-child(2) kbd { animation-delay: 0.05s; }
+html.js .card.is-active:not(.is-revealed) .choice:nth-child(3) span,
+html.js .card.is-active:not(.is-revealed) .choice:nth-child(3) kbd { animation-delay: 0.08s; }
+html.js .card.is-active:not(.is-revealed) .choice:nth-child(4) span,
+html.js .card.is-active:not(.is-revealed) .choice:nth-child(4) kbd { animation-delay: 0.11s; }
+html.js .card.is-active:not(.is-revealed) .choice:nth-child(5) span,
+html.js .card.is-active:not(.is-revealed) .choice:nth-child(5) kbd { animation-delay: 0.14s; }
 
 .choice {
     appearance: none;
@@ -2205,6 +2211,11 @@ html.js .finish-fallback { display: none; }
 @keyframes rise {
     from { opacity: 0; transform: translateY(14px); }
     to { opacity: 1; transform: none; }
+}
+
+@keyframes settle {
+    from { transform: translateY(8px); }
+    to { transform: none; }
 }
 
 @keyframes lift {
