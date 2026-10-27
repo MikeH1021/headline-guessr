@@ -487,7 +487,10 @@
             if (correct) {
                 HGSound.right();
                 if (run >= 2 && HGSound.straight) HGSound.straight(run);
-            } else HGSound.wrong();
+            } else {
+                HGSound.wrong();
+                if (broke && HGSound.snap) HGSound.snap();
+            }
         }
     }
 

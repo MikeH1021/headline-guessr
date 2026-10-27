@@ -174,6 +174,17 @@
         knock(audio, now + 0.02, 0.08, 0.1, 240);
     }
 
+    // Percussion only. A pitched crack stacks on the falling wrong chord.
+    function snap() {
+        if (muted()) return;
+        var audio = resume();
+        if (!audio) return;
+        var now = audio.currentTime + 0.04;
+        knock(audio, now, 0.045, 0.18, 140);
+        knock(audio, now + 0.05, 0.04, 0.12, 90);
+        knock(audio, now + 0.11, 0.07, 0.1, 70);
+    }
+
     function playTier(audio, tier) {
         var now = audio.currentTime + 0.02;
         if (tier === 'liberal') {
@@ -286,6 +297,7 @@
         straight: straight,
         best: best,
         wrong: wrong,
+        snap: snap,
         finish: finish,
         mountToggle: mountToggle,
     };
