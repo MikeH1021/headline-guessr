@@ -571,6 +571,8 @@ button.quiet.stats-open {
 
 .tally.is-run { color: var(--yes); transform-origin: right center; }
 
+.tally.is-back { color: var(--yes); }
+
 .tally.is-pop,
 .tally.is-snap { transform-origin: right center; }
 
@@ -711,6 +713,19 @@ html.js .card.is-active:not(.is-revealed) .lock.is-one.is-ready {
 
 html.js .card.is-active.is-fresh:not(.is-revealed) .lock.is-fresh:not(.is-ready):not(.is-one) {
     animation: pop 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html.js .card.is-active.is-climb:not(.is-revealed) .lock.is-climb:not(.is-ready):not(.is-one) {
+    color: var(--yes);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--yes) 72%, var(--line));
+    animation: pop 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html.js .card.is-active.is-climb:not(.is-revealed) .lock.is-climb.is-ready:not(.is-one) {
+    background: var(--yes);
+    color: var(--yes-ink);
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--yes) 55%, black);
+    animation: pop 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html.js .card:first-child.is-active {

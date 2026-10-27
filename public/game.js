@@ -15,6 +15,8 @@
     var chaseNoted = false;
     var chaseSlipped = false;
     var freshStart = false;
+    var rebuilding = false;
+    var showBack = false;
     var ghostMs = 0;
     var count = document.getElementById('count');
     var tally = document.getElementById('tally');
@@ -208,6 +210,7 @@
         var streak = run >= 2;
         tally.classList.toggle('is-hot', correctCount > 0);
         tally.classList.toggle('is-run', streak);
+        tally.classList.toggle('is-back', showBack && !streak);
         tally.classList.remove('is-pop');
         tally.classList.remove('is-snap');
         if (streak) {
@@ -219,6 +222,9 @@
             fire.textContent = '🔥';
             tally.appendChild(fire);
             tally.appendChild(document.createTextNode('Streak'));
+        } else if (showBack) {
+            tally.setAttribute('aria-label', 'Back in');
+            tally.textContent = 'Back';
         } else {
             tally.removeAttribute('aria-label');
             tally.textContent = correctCount + ' right';
@@ -228,7 +234,9 @@
             tally.classList.add('is-pop');
             var flame = tally.querySelector('.streak-fire');
             if (flame) flame.classList.add('is-lit');
-        } else if (snapped) tally.classList.add('is-snap');
+        } else if (showBack) {
+            tally.classList.add('is-pop');
+        } else if (snapped && run === 0) tally.classList.add('is-snap');
     }
 
     function storeRun() {
@@ -366,6 +374,7 @@
         if (card.classList.contains('is-revealed')) return label;
         if (oneAway(card)) return 'This one';
         if (freshStart && card === cards[index]) return 'Start again';
+        if (rebuilding && card === cards[index]) return 'Make 2';
         if (card.classList.contains('is-hot')) return 'Keep it';
         return label;
     }
@@ -374,8 +383,10 @@
         cards.forEach(function (card, cardIndex) {
             var live = run >= 2 && cardIndex === index && !card.classList.contains('is-revealed');
             var fresh = freshStart && cardIndex === index && !card.classList.contains('is-revealed') && !oneAway(card);
+            var climb = rebuilding && cardIndex === index && !card.classList.contains('is-revealed') && !oneAway(card);
             card.classList.toggle('is-hot', live);
             card.classList.toggle('is-fresh', fresh);
+            card.classList.toggle('is-climb', climb);
         });
         var card = cards[index];
         if (!card || card.classList.contains('is-revealed')) return;
@@ -384,6 +395,7 @@
         if (!lock) return;
         lock.classList.toggle('is-one', oneAway(card));
         lock.classList.toggle('is-fresh', freshStart && !oneAway(card));
+        lock.classList.toggle('is-climb', rebuilding && !oneAway(card));
         if (select && select.value) return;
         lock.textContent = lockBase(card);
     }
@@ -395,6 +407,7 @@
         lock.classList.toggle('is-ready', !!value);
         lock.classList.toggle('is-one', oneAway(card));
         lock.classList.toggle('is-fresh', freshStart && card === cards[index] && !oneAway(card));
+        lock.classList.toggle('is-climb', rebuilding && card === cards[index] && !oneAway(card));
     }
 
     function selectChoice(card, value) {
@@ -464,12 +477,16 @@
             run += 1;
             if (run > bestRun) bestRun = run;
             freshStart = false;
+            showBack = restarting;
+            rebuilding = restarting && index < total - 1;
         } else {
             if (run >= 2) broke = run;
             if (broke && tally) tally.classList.add('is-snap');
             run = 0;
             if (prior === total) chaseSlipped = true;
             freshStart = broke > 0;
+            showBack = false;
+            rebuilding = false;
         }
         note.classList.toggle('is-run', correct && run >= 2);
         note.classList.toggle('is-snap', broke > 0);
