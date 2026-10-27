@@ -905,6 +905,13 @@ html.js .card.is-active.is-climb:not(.is-revealed) .choice.is-selected {
     box-shadow: inset 5px 0 0 color-mix(in srgb, var(--yes-ink) 28%, transparent), 0 3px 0 color-mix(in srgb, var(--yes) 55%, black);
 }
 
+html.js .card.is-active:not(.is-revealed):has(.lock.is-one) .choice.is-selected {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+    box-shadow: inset 5px 0 0 color-mix(in srgb, var(--on-accent) 28%, transparent), 0 3px 0 color-mix(in srgb, var(--accent) 58%, black);
+}
+
 .card:has(.choice.is-selected) .choice:not(.is-selected):not(.is-right):not(.is-wrong) {
     opacity: 0.72;
 }
