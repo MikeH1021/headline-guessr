@@ -353,24 +353,42 @@
         } catch (err) {}
     }
 
+    function oneAway(card) {
+        if (prior == null || prior === total || correctCount !== prior) return false;
+        if (!card || card !== cards[index] || card.classList.contains('is-revealed')) return false;
+        return total - index >= 1;
+    }
+
+    function lockBase(card) {
+        var lock = card.querySelector('.lock');
+        var label = (lock && lock.getAttribute('data-label')) || 'Lock in';
+        if (card.classList.contains('is-revealed')) return label;
+        if (oneAway(card)) return 'This one';
+        if (card.classList.contains('is-hot')) return 'Keep it';
+        return label;
+    }
+
     function heatCard() {
         cards.forEach(function (card, cardIndex) {
             var live = run >= 2 && cardIndex === index && !card.classList.contains('is-revealed');
             card.classList.toggle('is-hot', live);
-            if (!live) return;
-            var lock = card.querySelector('.lock');
-            var select = card.querySelector('select');
-            if (!lock || !select || select.value) return;
-            lock.textContent = 'Keep it';
         });
+        var card = cards[index];
+        if (!card || card.classList.contains('is-revealed')) return;
+        var lock = card.querySelector('.lock');
+        var select = card.querySelector('select');
+        if (!lock) return;
+        lock.classList.toggle('is-one', oneAway(card));
+        if (select && select.value) return;
+        lock.textContent = lockBase(card);
     }
 
     function paintLock(card, value) {
         var lock = card.querySelector('.lock');
-        var base = lock.getAttribute('data-label') || 'Lock in';
-        if (card.classList.contains('is-hot') && !card.classList.contains('is-revealed')) base = 'Keep it';
+        var base = lockBase(card);
         lock.textContent = value ? base + ' · ' + value : base;
         lock.classList.toggle('is-ready', !!value);
+        lock.classList.toggle('is-one', oneAway(card));
     }
 
     function selectChoice(card, value) {

@@ -697,6 +697,18 @@ html.js .card.is-active.is-hot:not(.is-revealed) .lock.is-ready {
     animation: pop 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+html.js .card.is-active:not(.is-revealed) .lock.is-one:not(.is-ready) {
+    color: var(--accent);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 72%, var(--line));
+    animation: pop 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html.js .card.is-active:not(.is-revealed) .lock.is-one.is-ready {
+    background: var(--accent);
+    color: var(--on-accent);
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 58%, black);
+}
+
 html.js .card:first-child.is-active {
     animation: deal 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }

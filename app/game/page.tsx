@@ -124,7 +124,7 @@ export default async function GamePage({ searchParams }: { searchParams: Promise
       </main>
       {cards.length > 0 && (
         <>
-          <BootScripts src="/sound.js?v=6,/game.js?v=10" />
+          <BootScripts src="/sound.js?v=6,/game.js?v=11" />
         </>
       )}
     </div>
