@@ -613,16 +613,19 @@
         var saved = {};
         try { saved = JSON.parse(localStorage.getItem('hg-streak') || '{}'); } catch (err) { saved = {}; }
         var yesterday = dayShift(roundDay, -1);
+        var gap = /^\d{4}-\d{2}-\d{2}$/.test(saved.last || '') && saved.last < yesterday;
         var next = saved.last === roundDay
             ? (Number(saved.streak) || 1)
             : (saved.last === yesterday ? (Number(saved.streak) || 0) + 1 : 1);
+        var restarted = (gap || (saved.last === roundDay && !!saved.restarted)) && next === 1;
         if (!(next >= 1)) return null;
         var best = 0;
         try { best = Number(JSON.parse(localStorage.getItem('hg-career') || '{}').max) || 0; } catch (err) {}
+        if (gap && (Number(saved.streak) || 0) > best) best = Number(saved.streak) || 0;
         if (next > best) best = next;
-        var label = next === 1 ? '1-day streak' : next + '-day streak';
+        var label = restarted ? 'Day 1' : (next === 1 ? '1-day streak' : next + '-day streak');
         if (best > next) label += ' · best ' + best;
-        return { label: label, extended: saved.last !== roundDay };
+        return { label: label, extended: !restarted && saved.last !== roundDay, restarted: restarted };
     }
 
     function showStamp(title, line, tier) {
@@ -712,7 +715,7 @@
         var streak = streakLine();
         if (streak) {
             var streakNode = document.createElement('p');
-            streakNode.className = 'stamp-streak' + (streak.extended ? ' is-up' : '');
+            streakNode.className = 'stamp-streak' + (streak.restarted ? ' is-day1' : (streak.extended ? ' is-up' : ''));
             streakNode.textContent = streak.label;
             stamp.appendChild(streakNode);
         }

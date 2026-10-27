@@ -330,11 +330,25 @@
         try { saved = JSON.parse(localStorage.getItem('hg-streak') || '{}'); } catch (err) { saved = {}; }
         var yesterday = isoShift(day, -1);
         var finishedToday = document.body.classList.contains('page-results') || !!document.getElementById('today-play');
+        var restarted = false;
         if (saved.last === day) {
             streakNow = Number(saved.streak) || 1;
+            restarted = !!saved.restarted && streakNow === 1;
         } else if (finishedToday) {
+            var gap = /^\d{4}-\d{2}-\d{2}$/.test(saved.last || '') && saved.last < yesterday;
+            var oldRun = gap ? (Number(saved.streak) || 0) : 0;
             streakNow = saved.last === yesterday ? (Number(saved.streak) || 0) + 1 : 1;
-            try { localStorage.setItem('hg-streak', JSON.stringify({ last: day, streak: streakNow })); } catch (err) {}
+            restarted = gap && streakNow === 1;
+            if (oldRun > 0) {
+                var priorCareer = loadCareer();
+                if (oldRun > (Number(priorCareer.max) || 0)) {
+                    priorCareer.max = oldRun;
+                    saveCareer(priorCareer);
+                }
+            }
+            try {
+                localStorage.setItem('hg-streak', JSON.stringify({ last: day, streak: streakNow, restarted: restarted }));
+            } catch (err) {}
         } else if (saved.last === yesterday) {
             streakNow = Number(saved.streak) || 0;
         }
@@ -345,11 +359,12 @@
         }
         if (streakNow) {
             var best = Number(loadCareer().max) || streakNow;
-            var label = streakNow === 1 ? '1-day streak' : streakNow + '-day streak';
+            var label = restarted ? 'Day 1' : (streakNow === 1 ? '1-day streak' : streakNow + '-day streak');
             if (best > streakNow) label += ' · best ' + best;
             streakNodes.forEach(function (node) {
                 node.hidden = false;
                 node.textContent = label;
+                node.classList.toggle('is-day1', restarted);
             });
         }
         if (

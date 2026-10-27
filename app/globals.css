@@ -1394,7 +1394,8 @@ html.js .finish-fallback { display: none; }
     text-transform: uppercase;
 }
 
-.stamp-streak.is-up {
+.stamp-streak.is-up,
+.stamp-streak.is-day1 {
     color: var(--yes);
     animation: tally-pop 0.42s 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -1495,6 +1496,8 @@ html.js .finish-fallback { display: none; }
 }
 
 .streak { color: var(--ink); }
+
+.streak.is-day1 { color: var(--yes); }
 
 .next-round time { font-variant-numeric: tabular-nums; }
 
