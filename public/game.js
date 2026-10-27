@@ -448,6 +448,7 @@
         var answer = card.getAttribute('data-answer') || '';
         var picked = card.querySelector('select').value;
         var correct = !!answer && picked === answer;
+        var restarting = freshStart && !oneAway(card);
         card.classList.add('is-revealed');
         card.querySelectorAll('.choice').forEach(function (button) {
             button.disabled = true;
@@ -472,8 +473,9 @@
         }
         note.classList.toggle('is-run', correct && run >= 2);
         note.classList.toggle('is-snap', broke > 0);
+        note.classList.toggle('is-back', correct && restarting);
         note.textContent = correct
-            ? (run >= 2 ? 'Right. ' + run + ' straight.' : 'Right.')
+            ? (restarting ? 'Back in.' : (run >= 2 ? 'Right. ' + run + ' straight.' : 'Right.'))
             : (broke ? 'Snapped at ' + broke + '. ' + answer + '.' : 'Wrong. ' + answer + '.');
         var lock = card.querySelector('.lock');
         lock.textContent = index === total - 1 ? 'See rank' : 'Next';

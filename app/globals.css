@@ -940,6 +940,13 @@ html.js .card.is-active:not(.is-revealed) .choice:nth-child(5) kbd { animation-d
     animation: shake 0.36s ease;
 }
 
+.card.is-revealed .miss.is-back {
+    color: var(--yes);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    animation: tally-pop 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .card.is-revealed .lock.is-right {
     background: var(--yes);
     color: var(--yes-ink);
