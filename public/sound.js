@@ -133,6 +133,17 @@
         knock(audio, now + 0.14, 0.04, 0.08, 1800);
     }
 
+    // A step back onto the run. Shorter than a right answer, same chord.
+    function back() {
+        if (muted()) return;
+        var audio = resume();
+        if (!audio) return;
+        var now = audio.currentTime;
+        voice(audio, now, 392, 0.09, 'sine', 0.05);
+        voice(audio, now + 0.07, 523, 0.12, 'triangle', 0.07);
+        voice(audio, now + 0.14, 659, 0.16, 'sine', 0.045);
+    }
+
     function straight(count) {
         if (muted()) return;
         var audio = resume();
@@ -294,6 +305,7 @@
         last: last,
         miss: miss,
         right: right,
+        back: back,
         straight: straight,
         best: best,
         wrong: wrong,

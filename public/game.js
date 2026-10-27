@@ -514,8 +514,11 @@
         paintChase();
         if (window.HGSound) {
             if (correct) {
-                HGSound.right();
-                if (run >= 2 && HGSound.straight) HGSound.straight(run);
+                if (restarting && HGSound.back) HGSound.back();
+                else {
+                    HGSound.right();
+                    if (run >= 2 && HGSound.straight) HGSound.straight(run);
+                }
             } else {
                 HGSound.wrong();
                 if (broke && HGSound.snap) HGSound.snap();
