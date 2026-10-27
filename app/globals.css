@@ -709,6 +709,10 @@ html.js .card.is-active:not(.is-revealed) .lock.is-one.is-ready {
     box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 58%, black);
 }
 
+html.js .card.is-active.is-fresh:not(.is-revealed) .lock.is-fresh:not(.is-ready):not(.is-one) {
+    animation: pop 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 html.js .card:first-child.is-active {
     animation: deal 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }

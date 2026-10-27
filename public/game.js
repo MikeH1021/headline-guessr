@@ -14,6 +14,7 @@
     var chaseNode = null;
     var chaseNoted = false;
     var chaseSlipped = false;
+    var freshStart = false;
     var ghostMs = 0;
     var count = document.getElementById('count');
     var tally = document.getElementById('tally');
@@ -364,6 +365,7 @@
         var label = (lock && lock.getAttribute('data-label')) || 'Lock in';
         if (card.classList.contains('is-revealed')) return label;
         if (oneAway(card)) return 'This one';
+        if (freshStart && card === cards[index]) return 'Start again';
         if (card.classList.contains('is-hot')) return 'Keep it';
         return label;
     }
@@ -371,7 +373,9 @@
     function heatCard() {
         cards.forEach(function (card, cardIndex) {
             var live = run >= 2 && cardIndex === index && !card.classList.contains('is-revealed');
+            var fresh = freshStart && cardIndex === index && !card.classList.contains('is-revealed') && !oneAway(card);
             card.classList.toggle('is-hot', live);
+            card.classList.toggle('is-fresh', fresh);
         });
         var card = cards[index];
         if (!card || card.classList.contains('is-revealed')) return;
@@ -379,6 +383,7 @@
         var select = card.querySelector('select');
         if (!lock) return;
         lock.classList.toggle('is-one', oneAway(card));
+        lock.classList.toggle('is-fresh', freshStart && !oneAway(card));
         if (select && select.value) return;
         lock.textContent = lockBase(card);
     }
@@ -389,6 +394,7 @@
         lock.textContent = value ? base + ' · ' + value : base;
         lock.classList.toggle('is-ready', !!value);
         lock.classList.toggle('is-one', oneAway(card));
+        lock.classList.toggle('is-fresh', freshStart && card === cards[index] && !oneAway(card));
     }
 
     function selectChoice(card, value) {
@@ -456,11 +462,13 @@
             correctCount += 1;
             run += 1;
             if (run > bestRun) bestRun = run;
+            freshStart = false;
         } else {
             if (run >= 2) broke = run;
             if (broke && tally) tally.classList.add('is-snap');
             run = 0;
             if (prior === total) chaseSlipped = true;
+            freshStart = broke > 0;
         }
         note.classList.toggle('is-run', correct && run >= 2);
         note.classList.toggle('is-snap', broke > 0);
