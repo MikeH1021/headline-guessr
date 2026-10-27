@@ -462,6 +462,7 @@
         var picked = card.querySelector('select').value;
         var correct = !!answer && picked === answer;
         var restarting = freshStart && !oneAway(card);
+        var climbing = rebuilding && !oneAway(card);
         card.classList.add('is-revealed');
         card.querySelectorAll('.choice').forEach(function (button) {
             button.disabled = true;
@@ -491,8 +492,9 @@
         note.classList.toggle('is-run', correct && run >= 2);
         note.classList.toggle('is-snap', broke > 0);
         note.classList.toggle('is-back', correct && restarting);
+        note.classList.toggle('is-again', correct && climbing && run >= 2);
         note.textContent = correct
-            ? (restarting ? 'Back in.' : (run >= 2 ? 'Right. ' + run + ' straight.' : 'Right.'))
+            ? (restarting ? 'Back in.' : (climbing && run >= 2 ? '2 again.' : (run >= 2 ? 'Right. ' + run + ' straight.' : 'Right.')))
             : (broke ? 'Snapped at ' + broke + '. ' + answer + '.' : 'Wrong. ' + answer + '.');
         var lock = card.querySelector('.lock');
         lock.textContent = index === total - 1 ? 'See rank' : 'Next';

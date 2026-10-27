@@ -955,7 +955,8 @@ html.js .card.is-active:not(.is-revealed) .choice:nth-child(5) kbd { animation-d
     animation: shake 0.36s ease;
 }
 
-.card.is-revealed .miss.is-back {
+.card.is-revealed .miss.is-back,
+.card.is-revealed .miss.is-again {
     color: var(--yes);
     font-weight: 800;
     letter-spacing: 0.02em;
