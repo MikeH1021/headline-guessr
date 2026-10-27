@@ -254,6 +254,8 @@ button.quiet.stats-open {
 
 .hero .kicker.is-live { color: var(--accent); }
 
+.hero .kicker.is-snap { color: var(--no); animation: shake 0.36s ease; }
+
 .logo {
     margin: 8px 0 16px;
     padding-bottom: 12px;

@@ -371,6 +371,24 @@
                 play.setAttribute('aria-label', 'Play and make it a ' + nextStreak + '-day streak');
             }
         }
+        if (
+            document.body.classList.contains('page-home')
+            && !document.getElementById('today-play')
+            && /^\d{4}-\d{2}-\d{2}$/.test(saved.last || '')
+            && saved.last < yesterday
+        ) {
+            var cold = document.querySelector('.hero .kicker');
+            if (cold && cold.textContent.trim() === 'A daily round') {
+                cold.textContent = 'Streak snapped';
+                cold.classList.add('is-snap');
+            }
+            var restart = document.querySelector('.hero .play-btn');
+            if (restart && restart.getAttribute('href') === '/game' && restart.textContent.trim() === 'Play') {
+                restart.textContent = 'Play · day 1';
+                restart.classList.add('is-chase');
+                restart.setAttribute('aria-label', 'Play and start a 1-day streak');
+            }
+        }
     }
 
     var entry = day ? (loadCareer().days || {})[day] : null;
