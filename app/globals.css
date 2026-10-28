@@ -1178,6 +1178,12 @@ html.js .finish-fallback { display: none; }
 
 .page-home .one-short { margin: -6px 0 14px; }
 
+.page-home .perfect {
+    margin: -6px 0 14px;
+    transform-origin: left center;
+    animation: sweep-tally 0.46s 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .best-run,
 .new-best {
     margin: 8px 0 0;

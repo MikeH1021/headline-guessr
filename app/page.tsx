@@ -28,6 +28,7 @@ export default async function HomePage() {
   const before = todaySaved?.percentile
   const played = todayPlay(data)
   const oneShort = !!played && played.total > 1 && played.score === played.total - 1
+  const swept = !!played && played.total > 0 && played.score === played.total
   if (played && todaySaved && todaySaved.percentile !== before) saveSession(id, data)
   const past = listArchives().filter((item) => item.refreshedOn !== round.roundDay)
   return (
@@ -59,6 +60,7 @@ export default async function HomePage() {
               </div>
               <p className={`played-rank is-${played.tierId}`}>{played.title}</p>
               <p className="played-score">{played.score}/{played.total}</p>
+              {swept && <p className="perfect">Clean sweep</p>}
               {oneShort && <p className="one-short">One short</p>}
               <p className="pace" hidden></p>
               <div
