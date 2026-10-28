@@ -37,6 +37,7 @@
             var fresh = document.querySelector('.score-block .new-best');
             var peak = document.querySelector('.score-block .peak-round');
             var oneShort = document.querySelector('.score-block .one-short');
+            var perfect = document.querySelector('.score-block .perfect');
             var streak = document.querySelector('.streak');
             var scoreLine = (number ? (number.getAttribute('data-score') || number.textContent) : '') + (of ? of.textContent.trim() : '');
             if (pace && !pace.hidden && pace.textContent.trim()) scoreLine += ' ' + pace.textContent.trim();
@@ -45,6 +46,7 @@
                 date ? date.textContent.trim() : '',
                 scoreLine,
                 oneShort ? oneShort.textContent.trim() : '',
+                perfect ? perfect.textContent.trim() : '',
                 fresh ? fresh.textContent.trim() : '',
                 peak ? peak.textContent.trim() : '',
                 tiles,
@@ -54,8 +56,14 @@
             ].filter(Boolean).join('\n');
             function done() {
                 copy.textContent = 'Copied';
+                copy.classList.remove('is-copied');
+                void copy.offsetWidth;
+                copy.classList.add('is-copied');
                 if (window.HGSound) HGSound.tick();
-                window.setTimeout(function () { copy.textContent = 'Copy result'; }, 1600);
+                window.setTimeout(function () {
+                    copy.textContent = 'Copy result';
+                    copy.classList.remove('is-copied');
+                }, 1600);
             }
             function fallback() {
                 var area = document.createElement('textarea');

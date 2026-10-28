@@ -1517,6 +1517,13 @@ html.js .finish-fallback { display: none; }
 
 .copy-result:hover { color: var(--ink); }
 
+.copy-result.is-copied {
+    color: var(--ink);
+    border-color: var(--ink);
+    background: var(--paper-2);
+    animation: pop 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .played-row { margin: 16px 0 0; }
 
 .played-row .share-tile:nth-child(1) { animation-delay: 0.04s; }
