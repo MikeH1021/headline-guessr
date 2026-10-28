@@ -2100,16 +2100,21 @@ html.js .finish-fallback { display: none; }
     font-weight: 800;
     letter-spacing: 0.14em;
     text-transform: uppercase;
+    transform-origin: center;
+    animation-duration: 0.42s;
+    animation-delay: inherit;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    animation-fill-mode: both;
 }
 
-.review.is-right .verdict { transform: rotate(-2deg); }
-.review.is-wrong .verdict { transform: rotate(2deg); }
+.review.is-right .verdict { transform: rotate(-2deg); animation-name: verdict-right; }
+.review.is-wrong .verdict { transform: rotate(2deg); animation-name: verdict-wrong; }
 
 .guess, .answer { grid-column: 1 / -1; }
 
 .review.is-right .verdict { color: var(--good); }
 .review.is-wrong .verdict { color: var(--bad); }
-.review.is-cost .verdict { color: var(--accent); }
+.review.is-cost .verdict { color: var(--accent); animation-name: verdict-cost; }
 
 .guess, .answer { margin: 0; }
 .answer { color: var(--ink-soft); }
@@ -2667,6 +2672,24 @@ html.js .finish-fallback { display: none; }
     0% { opacity: 0; transform: scale(1.7) rotate(-9deg); }
     48% { opacity: 1; transform: scale(0.94) rotate(2.2deg); }
     100% { opacity: 1; transform: scale(1) rotate(-1.4deg); }
+}
+
+@keyframes verdict-right {
+    0% { opacity: 0; transform: scale(1.45) rotate(-12deg); }
+    58% { opacity: 1; transform: scale(0.94) rotate(1deg); }
+    100% { opacity: 1; transform: scale(1) rotate(-2deg); }
+}
+
+@keyframes verdict-wrong {
+    0% { opacity: 0; transform: scale(1.45) rotate(12deg); }
+    58% { opacity: 1; transform: scale(0.94) rotate(-1deg); }
+    100% { opacity: 1; transform: scale(1) rotate(2deg); }
+}
+
+@keyframes verdict-cost {
+    0% { opacity: 0; transform: scale(1.5) rotate(14deg); box-shadow: 0 0 0 0 var(--accent); }
+    55% { opacity: 1; transform: scale(0.92) rotate(-2deg); box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 45%, transparent); }
+    100% { opacity: 1; transform: scale(1) rotate(2deg); box-shadow: 0 0 0 0 transparent; }
 }
 
 @keyframes press {
