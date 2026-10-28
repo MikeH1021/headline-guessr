@@ -1619,6 +1619,7 @@ html.js .finish-fallback { display: none; }
 }
 
 .share-tile.is-right { background: var(--yes); animation-name: share-yes; }
+.share-tile.is-right.is-sweep { animation-name: share-sweep; animation-duration: 0.72s; }
 .share-tile.is-right::after { content: "✓"; }
 .share-tile.is-wrong { background: var(--no); color: var(--no-ink); animation-name: share-no; }
 .share-tile.is-wrong::after { content: "×"; }
@@ -2632,6 +2633,13 @@ html.js .finish-fallback { display: none; }
 @keyframes share-yes {
     0% { transform: rotateX(-90deg); background: var(--tile); color: transparent; }
     55% { transform: rotateX(0); background: var(--yes); color: var(--yes-ink); }
+    100% { transform: none; background: var(--yes); color: var(--yes-ink); }
+}
+
+@keyframes share-sweep {
+    0% { transform: rotateX(-90deg); background: var(--tile); color: transparent; }
+    42% { transform: rotateX(0); background: var(--yes); color: var(--yes-ink); }
+    68% { transform: scale(1.14); background: var(--yes); color: var(--yes-ink); }
     100% { transform: none; background: var(--yes); color: var(--yes-ink); }
 }
 

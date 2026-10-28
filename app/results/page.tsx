@@ -87,7 +87,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                 return (
                   <span
                     key={index}
-                    className={`share-tile ${right ? 'is-right' : 'is-wrong'}${oneShort && !right ? ' is-cost' : ''}`}
+                    className={`share-tile ${right ? 'is-right' : 'is-wrong'}${perfect && total > 1 && right ? ' is-sweep' : ''}${oneShort && !right ? ' is-cost' : ''}`}
                     style={{ animationDelay: `${index * 70}ms` }}
                   />
                 )

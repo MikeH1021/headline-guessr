@@ -55,7 +55,7 @@ export default async function HomePage() {
             <>
               <div className="share played-row" aria-hidden="true">
                 {played.marks.map((mark, index) => (
-                  <span key={index} className={`share-tile ${mark ? 'is-right' : 'is-wrong'}${oneShort && !mark ? ' is-cost' : ''}`} />
+                  <span key={index} className={`share-tile ${mark ? 'is-right' : 'is-wrong'}${swept && played.total > 1 && mark ? ' is-sweep' : ''}${oneShort && !mark ? ' is-cost' : ''}`} />
                 ))}
               </div>
               <p className={`played-rank is-${played.tierId}`}>{played.title}</p>
