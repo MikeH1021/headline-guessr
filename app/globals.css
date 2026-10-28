@@ -580,6 +580,8 @@ button.quiet.stats-open {
 
 .tally.is-pop { animation: tally-pop 0.38s cubic-bezier(0.22, 1, 0.36, 1); }
 
+.tally.is-sweep.is-pop { animation-name: sweep-tally; animation-duration: 0.46s; }
+
 .tally.is-snap { animation: shake 0.36s ease; }
 
 .tally .streak-fire {
@@ -2667,6 +2669,12 @@ html.js .finish-fallback { display: none; }
 @keyframes tally-pop {
     0% { transform: scale(1); }
     40% { transform: scale(1.14); }
+    100% { transform: scale(1); }
+}
+
+@keyframes sweep-tally {
+    0% { transform: scale(0.86); }
+    42% { transform: scale(1.28); }
     100% { transform: scale(1); }
 }
 
