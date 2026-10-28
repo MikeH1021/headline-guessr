@@ -1171,6 +1171,11 @@ html.js .finish-fallback { display: none; }
     animation: tally-pop 0.42s 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.score-block .perfect {
+    transform-origin: left center;
+    animation: sweep-tally 0.46s 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .page-home .one-short { margin: -6px 0 14px; }
 
 .best-run,
@@ -1573,7 +1578,11 @@ html.js .finish-fallback { display: none; }
 .stamp .perfect,
 .stamp .one-short { position: relative; z-index: 1; }
 
-.stamp .perfect { margin-top: 0; }
+.stamp .perfect {
+    margin-top: 0;
+    transform-origin: center;
+    animation: sweep-tally 0.46s 0.12s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 
 .stamp .one-short {
     margin-top: 4px;
