@@ -368,11 +368,18 @@
         return total - index >= 1;
     }
 
+    function sweepLive(card) {
+        if (!card || total < 2 || index !== total - 1 || correctCount !== total - 1) return false;
+        if (card !== cards[index] || card.classList.contains('is-revealed') || oneAway(card)) return false;
+        return true;
+    }
+
     function lockBase(card) {
         var lock = card.querySelector('.lock');
         var label = (lock && lock.getAttribute('data-label')) || 'Lock in';
         if (card.classList.contains('is-revealed')) return label;
         if (oneAway(card)) return 'This one';
+        if (sweepLive(card)) return 'Sweep it';
         if (freshStart && card === cards[index]) return 'Start again';
         if (rebuilding && card === cards[index]) return 'Make 2';
         if (card.classList.contains('is-hot')) return 'Keep it';
@@ -387,6 +394,7 @@
             card.classList.toggle('is-hot', live);
             card.classList.toggle('is-fresh', fresh);
             card.classList.toggle('is-climb', climb);
+            card.classList.toggle('is-sweep', sweepLive(card));
         });
         var card = cards[index];
         if (!card || card.classList.contains('is-revealed')) return;
@@ -396,6 +404,7 @@
         lock.classList.toggle('is-one', oneAway(card));
         lock.classList.toggle('is-fresh', freshStart && !oneAway(card));
         lock.classList.toggle('is-climb', rebuilding && !oneAway(card));
+        lock.classList.toggle('is-sweep', sweepLive(card));
         if (select && select.value) return;
         lock.textContent = lockBase(card);
     }
@@ -408,6 +417,7 @@
         lock.classList.toggle('is-one', oneAway(card));
         lock.classList.toggle('is-fresh', freshStart && card === cards[index] && !oneAway(card));
         lock.classList.toggle('is-climb', rebuilding && card === cards[index] && !oneAway(card));
+        lock.classList.toggle('is-sweep', sweepLive(card));
     }
 
     function selectChoice(card, value) {
@@ -489,12 +499,14 @@
             showBack = false;
             rebuilding = false;
         }
-        note.classList.toggle('is-run', correct && run >= 2);
+        var sweeping = correct && total > 1 && correctCount === total;
+        note.classList.toggle('is-run', correct && run >= 2 && !sweeping);
         note.classList.toggle('is-snap', broke > 0);
         note.classList.toggle('is-back', correct && restarting);
         note.classList.toggle('is-again', correct && climbing && run >= 2);
+        note.classList.toggle('is-sweep', sweeping);
         note.textContent = correct
-            ? (restarting ? 'Back in.' : (climbing && run >= 2 ? '2 again.' : (run >= 2 ? 'Right. ' + run + ' straight.' : 'Right.')))
+            ? (restarting ? 'Back in.' : (sweeping ? 'Clean sweep.' : (climbing && run >= 2 ? '2 again.' : (run >= 2 ? 'Right. ' + run + ' straight.' : 'Right.'))))
             : (broke ? 'Snapped at ' + broke + '. ' + answer + '.' : 'Wrong. ' + answer + '.');
         var lock = card.querySelector('.lock');
         lock.textContent = index === total - 1 ? 'See rank' : 'Next';

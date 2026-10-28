@@ -730,6 +730,21 @@ html.js .card.is-active.is-climb:not(.is-revealed) .lock.is-climb.is-ready:not(.
     animation: pop 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+html.js .card.is-active.is-sweep:not(.is-revealed) .folio { color: var(--yes); }
+
+html.js .card.is-active.is-sweep:not(.is-revealed) .lock.is-sweep:not(.is-ready):not(.is-one) {
+    color: var(--yes);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--yes) 72%, var(--line));
+    animation: sweep-pop 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html.js .card.is-active.is-sweep:not(.is-revealed) .lock.is-sweep.is-ready:not(.is-one) {
+    background: var(--yes);
+    color: var(--yes-ink);
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--yes) 55%, black);
+    animation: sweep-pop 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 html.js .card:first-child.is-active {
     animation: deal 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -898,7 +913,8 @@ html.js .card.is-active:not(.is-revealed) .choice:nth-child(5) kbd { animation-d
 }
 
 html.js .card.is-active.is-hot:not(.is-revealed) .choice.is-selected,
-html.js .card.is-active.is-climb:not(.is-revealed) .choice.is-selected {
+html.js .card.is-active.is-climb:not(.is-revealed) .choice.is-selected,
+html.js .card.is-active.is-sweep:not(.is-revealed) .choice.is-selected {
     border-color: var(--yes);
     background: var(--yes);
     color: var(--yes-ink);
@@ -940,7 +956,8 @@ html.js .card.is-active:not(.is-revealed):has(.lock.is-one) .choice.is-selected 
 .card.is-revealed .choice.is-selected.is-wrong { animation-name: flip-no-on; }
 
 html.js .card.is-revealed.is-hot .choice.is-selected.is-wrong,
-html.js .card.is-revealed.is-climb .choice.is-selected.is-wrong {
+html.js .card.is-revealed.is-climb .choice.is-selected.is-wrong,
+html.js .card.is-revealed.is-sweep .choice.is-selected.is-wrong {
     animation-name: flip-no-from-yes;
 }
 
@@ -962,7 +979,8 @@ html.js .card.is-revealed:has(.lock.is-one) .choice.is-selected.is-wrong {
 }
 
 html.js .card.is-revealed.is-hot .choice.is-selected.is-right,
-html.js .card.is-revealed.is-climb .choice.is-selected.is-right {
+html.js .card.is-revealed.is-climb .choice.is-selected.is-right,
+html.js .card.is-revealed.is-sweep .choice.is-selected.is-right {
     animation-name: flip-yes-from-yes;
 }
 
@@ -991,7 +1009,8 @@ html.js .card.is-revealed:has(.lock.is-one) .choice.is-selected.is-right {
 }
 
 .card.is-revealed .miss.is-back,
-.card.is-revealed .miss.is-again {
+.card.is-revealed .miss.is-again,
+.card.is-revealed .miss.is-sweep {
     color: var(--yes);
     font-weight: 800;
     letter-spacing: 0.02em;
@@ -2439,6 +2458,12 @@ html.js .finish-fallback { display: none; }
 @keyframes pop {
     0% { transform: scale(0.92); }
     60% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+}
+
+@keyframes sweep-pop {
+    0% { transform: scale(0.9); }
+    50% { transform: scale(1.07); }
     100% { transform: scale(1); }
 }
 
