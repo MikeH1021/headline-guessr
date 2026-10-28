@@ -500,6 +500,7 @@
             rebuilding = false;
         }
         var sweeping = correct && total > 1 && correctCount === total;
+        var oneShort = !correct && index === total - 1 && total > 1 && correctCount === total - 1;
         note.classList.toggle('is-run', correct && run >= 2 && !sweeping);
         note.classList.toggle('is-snap', broke > 0);
         note.classList.toggle('is-back', correct && restarting);
@@ -509,9 +510,10 @@
             ? (restarting ? 'Back in.' : (sweeping ? 'Clean sweep.' : (climbing && run >= 2 ? '2 again.' : (run >= 2 ? 'Right. ' + run + ' straight.' : 'Right.'))))
             : (broke ? 'Snapped at ' + broke + '. ' + answer + '.' : 'Wrong. ' + answer + '.');
         var lock = card.querySelector('.lock');
-        lock.textContent = index === total - 1 ? 'See rank' : 'Next';
+        lock.textContent = index === total - 1 ? (oneShort ? 'One short' : 'See rank') : 'Next';
         lock.classList.toggle('is-right', correct);
         lock.classList.toggle('is-wrong', !correct);
+        lock.classList.toggle('is-cost', oneShort);
         if (pips[index]) {
             pips[index].classList.add(correct ? 'is-right' : 'is-wrong');
             pips[index].classList.remove('is-last');

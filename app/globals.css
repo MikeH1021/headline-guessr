@@ -1031,6 +1031,15 @@ html.js .card.is-revealed:has(.lock.is-one) .choice.is-selected.is-right {
     animation: pop 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.card.is-revealed .lock.is-wrong.is-cost {
+    box-shadow:
+        0 4px 0 color-mix(in srgb, var(--no) 55%, black),
+        0 0 0 2px var(--paper),
+        0 0 0 4px var(--accent);
+    animation-name: cost-pop;
+    animation-duration: 0.42s;
+}
+
 .card.is-revealed .miss {
     display: flex;
     align-items: center;
@@ -2465,6 +2474,12 @@ html.js .finish-fallback { display: none; }
     0% { transform: scale(0.9); }
     50% { transform: scale(1.07); }
     100% { transform: scale(1); }
+}
+
+@keyframes cost-pop {
+    0% { transform: scale(0.94); box-shadow: 0 4px 0 color-mix(in srgb, var(--no) 55%, black), 0 0 0 2px var(--paper), 0 0 0 0 var(--accent); }
+    55% { transform: scale(1.06); box-shadow: 0 4px 0 color-mix(in srgb, var(--no) 55%, black), 0 0 0 2px var(--paper), 0 0 0 7px var(--accent); }
+    100% { transform: scale(1); box-shadow: 0 4px 0 color-mix(in srgb, var(--no) 55%, black), 0 0 0 2px var(--paper), 0 0 0 4px var(--accent); }
 }
 
 @keyframes hot-card {
