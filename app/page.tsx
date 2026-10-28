@@ -27,6 +27,7 @@ export default async function HomePage() {
   const todaySaved = resultForDay(data, round.roundDay)
   const before = todaySaved?.percentile
   const played = todayPlay(data)
+  const oneShort = !!played && played.total > 1 && played.score === played.total - 1
   if (played && todaySaved && todaySaved.percentile !== before) saveSession(id, data)
   const past = listArchives().filter((item) => item.refreshedOn !== round.roundDay)
   return (
@@ -53,12 +54,12 @@ export default async function HomePage() {
             <>
               <div className="share played-row" aria-hidden="true">
                 {played.marks.map((mark, index) => (
-                  <span key={index} className={`share-tile ${mark ? 'is-right' : 'is-wrong'}`} />
+                  <span key={index} className={`share-tile ${mark ? 'is-right' : 'is-wrong'}${oneShort && !mark ? ' is-cost' : ''}`} />
                 ))}
               </div>
               <p className={`played-rank is-${played.tierId}`}>{played.title}</p>
               <p className="played-score">{played.score}/{played.total}</p>
-              {played.total > 1 && played.score === played.total - 1 && <p className="one-short">One short</p>}
+              {oneShort && <p className="one-short">One short</p>}
               <p className="pace" hidden></p>
               <div
                 id="today-play"
