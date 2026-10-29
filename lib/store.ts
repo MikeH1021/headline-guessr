@@ -301,6 +301,25 @@ export function takeRound() {
   })()
 }
 
+export function dealQueued(running: boolean) {
+  const blocked = busy(running)
+  if (blocked) return blocked
+  return db().transaction(() => {
+    const existing = readRound()
+    const live = existing?.cards.length && roundIsCurrent(existing.refreshedOn, new Date(), currentRefreshTime()) ? existing : null
+    if (live) return 'Today’s round already has headlines. Move queue items in one at a time, or remove the round first.'
+    collapseQueue()
+    const queue = readQueue()
+    if (!queue.length) return 'The queue is empty.'
+    const { dealt, rest } = dealQueue(queue, ROUND_SIZE)
+    if (!dealt.length) return 'The queue has no headlines to deal.'
+    saveRound(dealt)
+    replaceQueue(rest)
+    for (const card of dealt) markSeen(card.headline, card.url || '', 'round')
+    return `Dealt ${dealt.length} into today’s round. ${rest.length} left in the queue.`
+  })()
+}
+
 export function publishQueuedRound(now = new Date()) {
   if (jobSnapshot().running) return false
   const refreshTime = currentRefreshTime()
@@ -361,20 +380,22 @@ export function useQueued(key: string, running: boolean) {
     const queue = readQueue()
     const item = queue.find((card) => headlineKey(card.headline) === wanted)
     if (!item) return 'That article is not in the queue.'
-    const round = readRound()
-    if (!round) return 'There is no round yet. Add the headline to the queue instead.'
-    const cards = round.cards
+    const existing = readRound()
+    const live = existing?.cards.length && roundIsCurrent(existing.refreshedOn, new Date(), currentRefreshTime()) ? existing : null
+    const cards = live ? live.cards : []
     if (cards.some((card) => sameEvent(card.headline, item.headline))) return 'That incident is already in today’s round.'
     if (cards.length >= ROUND_SIZE) return `Today’s round already has ${ROUND_SIZE} headlines.`
-    replaceCurrentCards([...cards, {
+    const next = [...cards, {
       source: item.source,
       headline: item.headline,
       ethnicity: item.ethnicity,
       url: articleHref(item.url),
-    }])
+    }]
+    if (live) replaceCurrentCards(next)
+    else saveRound(next)
     replaceQueue(queue.filter((card) => headlineKey(card.headline) !== wanted))
     markSeen(item.headline, item.url, 'round')
-    return 'Moved into today’s round.'
+    return live ? 'Moved into today’s round.' : 'Started today’s round with this headline.'
   })()
 }
 
@@ -404,14 +425,16 @@ export function addHeadline(
       markSeen(headline, url, 'queued')
       return `Added to the queue. ${capped.length} waiting.`
     }
-    const round = readRound()
-    if (!round) return 'There is no round yet. Add the headline to the queue instead.'
-    const cards = round.cards
+    const existing = readRound()
+    const live = existing?.cards.length && roundIsCurrent(existing.refreshedOn, new Date(), currentRefreshTime()) ? existing : null
+    const cards = live ? live.cards : []
     if (cards.some((card) => sameEvent(card.headline, headline))) return 'That incident is already in today’s round.'
     if (cards.length >= ROUND_SIZE) return `Today’s round already has ${ROUND_SIZE} headlines.`
-    replaceCurrentCards([...cards, { source, headline, ethnicity, url: articleHref(url) }])
+    const next = [...cards, { source, headline, ethnicity, url: articleHref(url) }]
+    if (live) replaceCurrentCards(next)
+    else saveRound(next)
     markSeen(headline, url, 'round')
-    return 'Added to today’s round.'
+    return live ? 'Added to today’s round.' : 'Started today’s round with this headline.'
   })()
 }
 

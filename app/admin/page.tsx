@@ -126,9 +126,16 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <p>
             {roundLive && round
               ? `${roundCards.length} headlines saved ${round.refreshedAt}. Remove one, or move a queued headline in, without running a refresh.`
-              : `Today’s round has not been dealt. The previous edition stays in Earlier rounds. Confirmed headlines stay in the queue until ${ROUND_SIZE} are ready.`}
+              : `Today’s round has not been dealt. Use today on a queued headline to start it, even with fewer than ${ROUND_SIZE} confirmed. The previous edition stays in Earlier rounds.`}
           </p>
           <p className="note" hidden={roundCards.length > 0}>Today’s round is empty.</p>
+          {!roundLive && queue.length > 0 && (
+            <form method="post" action="/admin/post" {...formQuiet}>
+              <button className="btn" type="submit" name="action" value="deal_queue">
+                Deal {Math.min(queue.length, ROUND_SIZE)} into today’s round
+              </button>
+            </form>
+          )}
           <ul className="queue-list">
             {roundCards.map((card) => (
               <li key={headlineKey(card.headline)}>

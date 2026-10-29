@@ -303,7 +303,7 @@ async function checkImport() {
   assert.throws(() => buildRound(), (err: unknown) => err instanceof Error && err.message === 'Today’s round is not ready yet.')
   assert.equal(readRound()?.cards[0].url, 'https://example.com/robbery')
 
-  const { saveRound, readArchive, listArchives, addHeadline, useQueued, dropRoundCard, readQueue: queueNow, applyCardUrls, publishQueuedRound } = await import('../lib/store')
+  const { saveRound, readArchive, listArchives, addHeadline, useQueued, dealQueued, dropRoundCard, readQueue: queueNow, applyCardUrls, publishQueuedRound } = await import('../lib/store')
   const { hasSeen, markSeen, articleLink } = await import('../lib/seen')
   saveRound(
     [{ source: 'CBS', headline: 'First saved robbery downtown', ethnicity: 'White', url: 'javascript:alert(1)' }],
@@ -336,8 +336,13 @@ async function checkImport() {
   )
   const queued = queueNow()
   assert.equal(queued.length, 1)
-  assert.equal(useQueued(queued[0] ? queued[0].headline.toLowerCase() : '', false).includes('Moved'), true)
-  assert.equal(readArchive('2026-10-21')?.cards.length, 2)
+  assert.equal(
+    useQueued(queued[0] ? queued[0].headline.toLowerCase() : '', false),
+    'Started today’s round with this headline.',
+  )
+  assert.equal(readRound()?.cards.length, 1)
+  assert.equal(readRound()?.cards[0].headline, 'Man arrested after the harbor theft')
+  assert.equal(readArchive('2026-10-21')?.cards.length, 1)
   assert.equal(queueNow().length, 0)
   const longUrl = `https://news.google.com/rss/articles/${'a'.repeat(280)}`
   assert.ok(longUrl.length > 300)
@@ -362,7 +367,7 @@ async function checkImport() {
     }, false),
     'That URL needs to be an http or https link.',
   )
-  const added = readArchive('2026-10-21')?.cards.find((card) => card.headline.includes('harbor'))
+  const added = readRound()?.cards.find((card) => card.headline.includes('harbor'))
   assert.equal(added?.ethnicity, 'Hispanic')
   assert.equal(added?.url, 'https://example.com/harbor')
   const { articleUrls } = await import('../lib/seen')
@@ -421,6 +426,11 @@ async function checkImport() {
   assert.equal(queueNow().length, queuedBefore - 10)
   assert.equal(readArchive('2026-10-22')?.cards[0].headline, 'Decode this charge')
   assert.equal(publishQueuedRound(), false)
+  for (const card of readRound()?.cards || []) dropRoundCard(headlineKey(card.headline), false)
+  assert.equal(readRound()?.cards.length, 0)
+  assert.equal(dealQueued(false), 'Dealt 3 into today’s round. 0 left in the queue.')
+  assert.equal(readRound()?.cards.length, 3)
+  assert.equal(queueNow().length, 0)
 
   const session = await import('../lib/xai-session')
   const { XAI_OAUTH_CLIENT_ID } = await import('../lib/xai-oauth')

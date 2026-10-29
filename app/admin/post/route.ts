@@ -5,7 +5,7 @@ import { DEFAULT_ETHNICITY_PROMPT, MODEL_IDS } from '@/lib/constants'
 import { validRefreshTime } from '@/lib/feeds'
 import { jobSnapshot } from '@/lib/job'
 import { clearRum } from '@/lib/rum'
-import { addFeed, addHeadline, dropQueued, dropRoundCard, removeFeed, saveSettings, useQueued } from '@/lib/store'
+import { addFeed, addHeadline, dealQueued, dropQueued, dropRoundCard, removeFeed, saveSettings, useQueued } from '@/lib/store'
 import { startRefresh } from '@/lib/classify'
 import { beginSignIn, cancelSignIn, disconnectGrok } from '@/lib/xai-session'
 import { publicUrl } from '@/lib/public-url'
@@ -45,6 +45,8 @@ export async function POST(request: Request) {
     message = dropQueued(String(form.get('queue_key') || ''), jobSnapshot().running)
   } else if (action === 'use_queue') {
     message = useQueued(String(form.get('queue_key') || ''), jobSnapshot().running)
+  } else if (action === 'deal_queue') {
+    message = dealQueued(jobSnapshot().running)
   } else if (action === 'drop_round') {
     message = dropRoundCard(String(form.get('queue_key') || ''), jobSnapshot().running)
   } else if (action === 'add_queue' || action === 'add_round') {
